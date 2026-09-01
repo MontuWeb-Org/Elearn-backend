@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-Learning Platform — End-to-End Wireframes</title>
+<style>
+  :root{
+    --ink:#1A1A1A;
+    --gray-fill:#F2F2F2;
+    --gray-border:#CCCCCC;
+    --line:#B9B9B9;
+    --line-strong:#8A8A8A;
+    --panel-bg:#FFFFFF;
+    --wf-bg:#FDFDFD;
+    --note-bg:#FFF8E1;
+    --note-border:#E3C766;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Google Sans","Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--ink); background:var(--panel-bg); display:flex; min-height:100vh;
+  }
+  .app-header{
+    position:fixed; top:0; left:0; right:0; height:56px; background:#FFFFFF;
+    border-bottom:1px solid var(--gray-border); display:flex; align-items:center;
+    justify-content:space-between; padding:0 20px; z-index:50;
+  }
+  .app-header .title{font-size:13px; letter-spacing:.04em; color:#555;}
+  .app-header .title b{color:var(--ink);}
+  .wordmark{font-weight:700; letter-spacing:.12em; font-size:13px; color:var(--ink);}
+  .wordmark span{color:#9a9a9a; font-weight:500; letter-spacing:.04em;}
+
+  .sidebar{
+    position:fixed; top:56px; bottom:0; left:0; width:258px; border-right:1px solid var(--gray-border);
+    background:#FCFCFC; overflow-y:auto; padding:16px 0 40px;
+  }
+  .sidebar h4{font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:#8a8a8a; margin:18px 18px 6px;}
+  .sidebar .persona-tag{font-size:10px; color:#9a9a9a; margin:0 18px 8px; line-height:1.4;}
+  .nav-item{display:flex; align-items:center; gap:9px; padding:8px 18px; font-size:13px; cursor:pointer; color:#444; border-left:2px solid transparent;}
+  .nav-item .num{font-size:10px; color:#aaa; width:18px; flex:none;}
+  .nav-item:hover{background:var(--gray-fill); color:var(--ink);}
+  .nav-item.active{background:var(--gray-fill); color:var(--ink); font-weight:600; border-left:2px solid var(--ink);}
+
+  .main{margin-left:258px; margin-top:56px; flex:1; padding:28px 36px 80px; max-width:1180px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .screen-head{margin-bottom:18px;}
+  .screen-head .crumb{font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px;}
+  .screen-head h1{font-size:20px; margin:0 0 4px;}
+  .screen-head .meta{font-size:12px; color:#777;}
+  .screen-head .meta b{color:var(--ink);}
+
+  .canvas-wrap{background:var(--wf-bg); border:1px solid var(--gray-border); border-radius:6px; padding:26px; margin-bottom:20px; overflow-x:auto;}
+  .notes{background:var(--note-bg); border:1px solid var(--note-border); border-radius:6px; padding:14px 18px;}
+  .notes h3{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px; color:#6b5a13;}
+  .notes ol{margin:0; padding-left:18px; font-size:12.5px; line-height:1.65; color:#4a3f10;}
+  .notes li b{color:#2a2205;}
+
+  .wf-browser{border:1px solid var(--line-strong); border-radius:6px; background:#fff; min-width:920px;}
+  .wf-browser .chrome{display:flex; align-items:center; gap:6px; padding:7px 10px; border-bottom:1px solid var(--line); background:#F6F6F6;}
+  .wf-browser .dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--line-strong);}
+  .wf-browser .addr{flex:1; height:16px; margin-left:8px; background:#fff; border:1px solid var(--line); border-radius:3px;}
+
+  .app-shell{display:flex; min-height:560px;}
+  .app-sidebar{width:190px; border-right:1px solid var(--line); padding:16px 12px; flex:none;}
+  .app-sidebar .logo-ph{width:70%; height:14px; background:var(--line); border-radius:2px; margin-bottom:22px;}
+  .app-sidebar .side-item{display:flex; align-items:center; gap:8px; padding:8px 6px; font-size:11px; color:#666; border-radius:4px; margin-bottom:2px;}
+  .app-sidebar .side-item .ico{width:14px;height:14px;border:1.5px solid var(--line-strong); border-radius:3px; flex:none;}
+  .app-sidebar .side-item.on{background:var(--gray-fill); color:var(--ink); font-weight:600;}
+  .app-content{flex:1; padding:20px 24px;}
+  .app-topbar{display:flex; align-items:center; justify-content:space-between; padding:0 20px 16px; border-bottom:1px solid var(--line); margin-bottom:18px;}
+
+  .ln{height:8px; background:var(--line); border-radius:2px; margin:6px 0;}
+  .ln.sm{height:6px; background:#DEDEDE;}
+  .ln.title{height:12px; background:var(--line-strong); width:55%;}
+  .ph-img{background:repeating-linear-gradient(45deg,#eee,#eee 6px,#f7f7f7 6px,#f7f7f7 12px); border:1px solid var(--line); border-radius:4px;}
+  .ph-avatar{background:repeating-linear-gradient(45deg,#eee,#eee 4px,#f7f7f7 4px,#f7f7f7 8px); border:1px solid var(--line); border-radius:50%; flex:none;}
+
+  .wf-btn{display:inline-flex; align-items:center; justify-content:center; border:1.4px solid var(--ink); border-radius:5px; padding:8px 16px; font-size:11.5px; font-weight:600; color:var(--ink); background:#fff; cursor:default;}
+  .wf-btn.solid{background:var(--ink); color:#fff;}
+  .wf-btn.ghost{border:1.4px dashed var(--line-strong); color:#777; background:#fff;}
+  .wf-btn.sm{padding:5px 10px; font-size:10.5px;}
+
+  .wf-field{margin-bottom:14px;}
+  .wf-field label{display:block; font-size:10.5px; color:#888; margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em;}
+  .wf-input{border:1px solid var(--line-strong); border-radius:4px; height:32px; background:#fff;}
+  .wf-input.textarea{height:60px;}
+
+  .wf-card{border:1px solid var(--line); border-radius:6px; padding:14px; background:#fff;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+
+  .wf-chip{display:inline-block; border:1px solid var(--line-strong); border-radius:20px; padding:3px 10px; font-size:10px; color:#555; margin-right:6px;}
+  .wf-chip.solid{background:var(--gray-fill);}
+  .badge-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;}
+  .badge-dot.green{background:#8fbf8f;} .badge-dot.amber{background:#e0c069;} .badge-dot.red{background:#d98a8a;}
+
+  table.wf-table{width:100%; border-collapse:collapse; font-size:11px;}
+  table.wf-table th{text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:#999; border-bottom:1px solid var(--line-strong); padding:6px 8px; font-weight:600;}
+  table.wf-table td{border-bottom:1px solid var(--line); padding:9px 8px; color:#444;}
+
+  .tab-row{display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:16px;}
+  .tab-row .tab{padding:8px 14px; font-size:11.5px; color:#888; border-bottom:2px solid transparent;}
+  .tab-row .tab.on{color:var(--ink); font-weight:600; border-bottom:2px solid var(--ink);}
+
+  .chart-box{border:1px solid var(--line); border-radius:6px; padding:12px; background:#fff;}
+  .bars{display:flex; align-items:flex-end; gap:8px; height:110px; padding:6px 4px;}
+  .bars .bar{flex:1; background:var(--gray-fill); border:1px solid var(--line-strong); border-radius:2px 2px 0 0;}
+
+  .stepper{display:flex; align-items:center; gap:6px; margin-bottom:18px;}
+  .stepper .step{width:22px; height:22px; border-radius:50%; border:1.4px solid var(--line-strong); display:flex; align-items:center; justify-content:center; font-size:10px; color:#888; flex:none;}
+  .stepper .step.on{background:var(--ink); border-color:var(--ink); color:#fff;}
+  .stepper .bar-link{flex:1; height:1.4px; background:var(--line);}
+
+  .phone{width:340px; margin:0 auto; border:8px solid var(--ink); border-radius:34px; padding:0; background:#fff; overflow:hidden;}
+  .phone-notch{height:22px; background:var(--ink); position:relative;}
+  .phone-notch::after{content:""; position:absolute; top:6px; left:50%; transform:translateX(-50%); width:70px; height:10px; background:#000; border-radius:8px;}
+  .phone-screen{min-height:600px; display:flex; flex-direction:column;}
+  .phone-topbar{padding:14px 16px 10px; border-bottom:1px solid var(--line);}
+  .phone-body{flex:1; padding:14px 16px; overflow-y:auto;}
+  .phone-tabbar{display:flex; border-top:1px solid var(--line); padding:10px 6px 14px;}
+  .phone-tabbar .tabitem{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .phone-tabbar .tabitem .ico{width:16px;height:16px; border:1.6px solid var(--line-strong); border-radius:4px;}
+  .phone-tabbar .tabitem.on .ico{border-color:var(--ink); background:var(--gray-fill);}
+  .phone-tabbar .tabitem .lbl{width:28px; height:5px; background:var(--line); border-radius:2px;}
+  .phone-tabbar .tabitem.on .lbl{background:var(--ink);}
+  .fab{width:100%; text-align:center; border:1.4px solid var(--ink); background:var(--ink); color:#fff; border-radius:8px; padding:12px; font-size:12px; font-weight:700; margin-top:8px;}
+
+  .row{display:flex; align-items:center;}
+  .between{justify-content:space-between;}
+  .gap8{gap:8px;} .gap10{gap:10px;} .gap14{gap:14px;}
+  .mt8{margin-top:8px;} .mt12{margin-top:12px;} .mt16{margin-top:16px;} .mt20{margin-top:20px;}
+  .mb8{margin-bottom:8px;} .mb12{margin-bottom:12px;} .mb16{margin-bottom:16px;}
+  .small{font-size:10.5px; color:#999;}
+  .center{text-align:center;}
+  .footer-note{margin-top:26px; padding-top:14px; border-top:1px solid var(--gray-border); font-size:10.5px; color:#aaa; display:flex; justify-content:space-between;}
+
+  @media (max-width:900px){ .sidebar{display:none;} .main{margin-left:0;} }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="title">E-Learning Platform &nbsp;·&nbsp; <b>End-to-End Wireframes</b> &nbsp;·&nbsp; v1.0</div>
+  <div class="wordmark">MONTU <span>TECH</span></div>
+</div>
+
+<div class="sidebar" id="sidebar">
+  <h4>Overview</h4>
+  <div class="nav-item" data-target="s-overview"><span class="num">00</span> User Flow Map</div>
+
+  <h4>Authentication</h4>
+  <div class="persona-tag">Shared across all four account tiers</div>
+  <div class="nav-item" data-target="s-login"><span class="num">01</span> Login</div>
+  <div class="nav-item" data-target="s-signup"><span class="num">02</span> Instructor Sign Up</div>
+  <div class="nav-item" data-target="s-forgot"><span class="num">03</span> Forgot Password</div>
+  <div class="nav-item" data-target="s-tainvite"><span class="num">04</span> TA Invite &amp; Setup</div>
+  <div class="nav-item" data-target="s-familyinvite"><span class="num">05</span> Parent &amp; Student Invite</div>
+
+  <h4>Instructor Dashboard</h4>
+  <div class="persona-tag">Persona: Mr. Ahmed — master control center</div>
+  <div class="nav-item" data-target="s-idash"><span class="num">06</span> Instructor Dashboard</div>
+  <div class="nav-item" data-target="s-curriculum"><span class="num">07</span> Course &amp; Curriculum Builder</div>
+  <div class="nav-item" data-target="s-content"><span class="num">08</span> Content &amp; Assessment Hub</div>
+  <div class="nav-item" data-target="s-calendar"><span class="num">09</span> Unified Scheduling</div>
+  <div class="nav-item" data-target="s-session"><span class="num">10</span> Class Session View</div>
+  <div class="nav-item" data-target="s-roster"><span class="num">11</span> Student Roster &amp; Performance</div>
+  <div class="nav-item" data-target="s-fees"><span class="num">12</span> Fees &amp; Revenue</div>
+  <div class="nav-item" data-target="s-isettings"><span class="num">13</span> Instructor Settings</div>
+
+  <h4>TA Portal</h4>
+  <div class="persona-tag">Delegated access — attendance &amp; grading</div>
+  <div class="nav-item" data-target="s-tadash"><span class="num">14</span> TA Dashboard</div>
+  <div class="nav-item" data-target="s-grading"><span class="num">15</span> Grading Queue</div>
+  <div class="nav-item" data-target="s-attendance"><span class="num">16</span> Attendance Taking</div>
+
+  <h4>Parent Portal</h4>
+  <div class="persona-tag">Persona: Parent Sara — mobile-first</div>
+  <div class="nav-item" data-target="s-phome"><span class="num">17</span> Parent Home</div>
+  <div class="nav-item" data-target="s-pchild"><span class="num">18</span> Child Detail View</div>
+
+  <h4>Student Portal</h4>
+  <div class="persona-tag">Clean, focused learning interface</div>
+  <div class="nav-item" data-target="s-shome"><span class="num">19</span> Student Dashboard</div>
+  <div class="nav-item" data-target="s-lesson"><span class="num">20</span> Lesson &amp; Materials View</div>
+  <div class="nav-item" data-target="s-liveclass"><span class="num">21</span> Live Class</div>
+  <div class="nav-item" data-target="s-quiz"><span class="num">22</span> Quiz Taking</div>
+  <div class="nav-item" data-target="s-homework"><span class="num">23</span> Homework Submission</div>
+</div>
+
+<div class="main">
+
+  <!-- 00 OVERVIEW -->
+  <section class="screen active" id="s-overview">
+    <div class="screen-head">
+      <div class="crumb">Overview</div>
+      <h1>End-to-End User Flow</h1>
+      <div class="meta">Four linked account tiers — Instructor, TA, Parent, Student — sharing one curriculum and schedule.</div>
+    </div>
+    <div class="canvas-wrap">
+      <svg viewBox="0 0 1080 640" width="100%" style="min-width:900px;font-family:inherit;">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#8A8A8A"/>
+          </marker>
+        </defs>
+
+        <text x="20" y="26" font-size="11" fill="#999" letter-spacing="1">INSTRUCTOR — MR. AHMED</text>
+        <g font-size="10.5" fill="#1A1A1A">
+          <rect x="20" y="38" width="140" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="90" y="64" text-anchor="middle">Sign Up</text>
+          <rect x="205" y="38" width="140" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="275" y="64" text-anchor="middle">Dashboard</text>
+          <rect x="390" y="38" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="465" y="59" text-anchor="middle">Build Course /</text><text x="465" y="71" text-anchor="middle">Content / Quizzes</text>
+          <rect x="585" y="38" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="660" y="64" text-anchor="middle">Schedule Session</text>
+          <rect x="780" y="38" width="260" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="910" y="59" text-anchor="middle">Invite TA / Parent / Student</text><text x="910" y="71" text-anchor="middle" font-size="9" fill="#999">(linked accounts)</text>
+        </g>
+        <line x1="160" y1="60" x2="200" y2="60" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="345" y1="60" x2="385" y2="60" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="540" y1="60" x2="580" y2="60" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="735" y1="60" x2="775" y2="60" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+
+        <line x1="20" y1="110" x2="1060" y2="110" stroke="#DEDEDE"/>
+
+        <text x="20" y="140" font-size="11" fill="#999" letter-spacing="1">TEACHING ASSISTANT</text>
+        <g font-size="10.5" fill="#1A1A1A">
+          <rect x="205" y="152" width="140" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="275" y="170" text-anchor="middle">Accept Invite</text><text x="275" y="182" text-anchor="middle" font-size="9" fill="#999">(role: TA)</text>
+          <rect x="585" y="152" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="660" y="170" text-anchor="middle">Take Attendance</text><text x="660" y="182" text-anchor="middle" font-size="9" fill="#999">in session</text>
+          <rect x="780" y="152" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="855" y="174" text-anchor="middle">Grade Queue</text>
+        </g>
+        <line x1="275" y1="82" x2="275" y2="147" stroke="#8A8A8A" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="660" y1="82" x2="660" y2="147" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="735" y1="174" x2="775" y2="174" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+
+        <line x1="20" y1="222" x2="1060" y2="222" stroke="#DEDEDE"/>
+
+        <text x="20" y="252" font-size="11" fill="#999" letter-spacing="1">STUDENT</text>
+        <g font-size="10.5" fill="#1A1A1A">
+          <rect x="205" y="264" width="140" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="275" y="282" text-anchor="middle">Accept Invite</text><text x="275" y="294" text-anchor="middle" font-size="9" fill="#999">(role: student)</text>
+          <rect x="390" y="264" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="465" y="286" text-anchor="middle">Student Dashboard</text>
+          <rect x="585" y="264" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="660" y="282" text-anchor="middle">Live Class /</text><text x="660" y="294" text-anchor="middle">Lesson Materials</text>
+          <rect x="780" y="264" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="855" y="282" text-anchor="middle">Quiz /</text><text x="855" y="294" text-anchor="middle">Homework</text>
+        </g>
+        <line x1="275" y1="196" x2="275" y2="259" stroke="#8A8A8A" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="345" y1="286" x2="385" y2="286" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="540" y1="286" x2="580" y2="286" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="735" y1="286" x2="775" y2="286" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+
+        <line x1="20" y1="334" x2="1060" y2="334" stroke="#DEDEDE"/>
+
+        <text x="20" y="364" font-size="11" fill="#999" letter-spacing="1">PARENT — SARA</text>
+        <g font-size="10.5" fill="#1A1A1A">
+          <rect x="205" y="376" width="140" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="275" y="394" text-anchor="middle">Accept Invite</text><text x="275" y="406" text-anchor="middle" font-size="9" fill="#999">(linked to child)</text>
+          <rect x="390" y="376" width="150" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="465" y="398" text-anchor="middle">Parent Home</text>
+          <rect x="585" y="376" width="345" height="44" rx="6" fill="#fff" stroke="#8A8A8A"/><text x="757" y="394" text-anchor="middle">Attendance badges · Grades · Fees</text><text x="757" y="406" text-anchor="middle" font-size="9" fill="#999">read-only, synced in real time</text>
+        </g>
+        <line x1="275" y1="308" x2="275" y2="371" stroke="#8A8A8A" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="345" y1="398" x2="385" y2="398" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+        <line x1="540" y1="398" x2="580" y2="398" stroke="#8A8A8A" marker-end="url(#arrow)"/>
+
+        <text x="20" y="450" font-size="9" fill="#aaa">Solid arrows = primary path within a role. Dashed arrows = invite issued by the instructor into a new role.</text>
+        <text x="20" y="466" font-size="9" fill="#aaa">All four tiers read from the same course, schedule and gradebook data — updates propagate in real time.</text>
+      </svg>
+    </div>
+    <div class="notes">
+      <h3>How to use this document</h3>
+      <ol>
+        <li>Use the left rail to open any of the 24 screens, grouped by <b>Authentication</b>, <b>Instructor Dashboard</b>, <b>TA Portal</b>, <b>Parent Portal</b> and <b>Student Portal</b>.</li>
+        <li>Each screen is a low-fidelity layout wireframe — structure and interaction only, not final visual design.</li>
+        <li>Instructor and TA screens are framed as a web dashboard (multi-class management on a larger screen); Parent is framed as a mobile app per the "mobile-friendly, zero technical effort" goal; Student is framed as a web app to accommodate live video and quiz-taking.</li>
+        <li>Yellow note panels under each screen describe interactions, edge cases and how the four roles connect.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 01 LOGIN -->
+  <section class="screen" id="s-login">
+    <div class="screen-head">
+      <div class="crumb">Authentication</div>
+      <h1>01 · Login</h1>
+      <div class="meta">Single entry point for all four roles — role is resolved server-side and routes accordingly.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div style="max-width:380px;margin:0 auto;border:1px solid var(--line);border-radius:8px;padding:30px 28px;">
+        <div class="ph-img" style="width:110px;height:20px;margin-bottom:26px;"></div>
+        <div class="ln title mb16" style="width:60%;">Log in</div>
+        <div class="wf-field"><label>Email</label><div class="wf-input"></div></div>
+        <div class="wf-field"><label>Password</label><div class="wf-input"></div></div>
+        <div class="row between mb16"><span class="small">Remember me ▢</span><span class="small" style="text-decoration:underline;">Forgot password?</span></div>
+        <div class="wf-btn solid" style="width:100%;">Log In</div>
+        <div class="center small mt16">Teaching independently? <span style="text-decoration:underline;">Start as an instructor</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Role routing: <b>Instructor</b> → 06; <b>TA</b> → 14; <b>Parent</b> → 17; <b>Student</b> → 19.</li>
+        <li>A parent with multiple linked children logs in once and switches between them from Parent Home (17) — no separate login per child.</li>
+        <li>Only instructors see the sign-up link; TA, parent and student accounts are always created via an instructor-issued invite (screens 04–05).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 02 INSTRUCTOR SIGN UP -->
+  <section class="screen" id="s-signup">
+    <div class="screen-head">
+      <div class="crumb">Authentication</div>
+      <h1>02 · Instructor Sign Up</h1>
+      <div class="meta">Instructors are the root account — everything else (TAs, parents, students) is provisioned underneath them.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div style="max-width:520px;margin:0 auto;">
+        <div class="stepper">
+          <div class="step on">1</div><div class="bar-link"></div>
+          <div class="step">2</div><div class="bar-link"></div>
+          <div class="step">3</div>
+        </div>
+        <div class="small mb8">Step 1 of 3 — Account details</div>
+        <div class="wf-field"><label>Full name</label><div class="wf-input"></div></div>
+        <div class="wf-field"><label>Subject(s) taught</label><div class="wf-input"></div></div>
+        <div class="wf-field"><label>Curriculum</label><div class="row gap8"><span class="wf-chip solid">IGCSE</span><span class="wf-chip">American Diploma</span><span class="wf-chip">Both</span></div></div>
+        <div class="wf-field"><label>Email</label><div class="wf-input"></div></div>
+        <div class="grid2">
+          <div class="wf-field"><label>Password</label><div class="wf-input"></div></div>
+          <div class="wf-field"><label>Confirm password</label><div class="wf-input"></div></div>
+        </div>
+        <div class="row between mt12">
+          <span class="wf-btn ghost sm">Back</span>
+          <span class="wf-btn solid sm">Continue → Create first course</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Step 2 sets billing/plan tier (based on student count and TA seats — mirrors the platform's multi-tier hierarchy). Step 3 is payment.</li>
+        <li>On completion, instructor is guided straight into the Course &amp; Curriculum Builder (07) to create their first subject/term structure — reduces empty-dashboard drop-off.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 03 FORGOT PASSWORD -->
+  <section class="screen" id="s-forgot">
+    <div class="screen-head">
+      <div class="crumb">Authentication</div>
+      <h1>03 · Forgot Password</h1>
+      <div class="meta">Shared reset flow for all account tiers.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div style="max-width:380px;margin:0 auto;border:1px solid var(--line);border-radius:8px;padding:30px 28px;">
+        <div class="ln title mb8" style="width:80%;">Reset your password</div>
+        <div class="small mb16">Enter the email on your account and we'll send a reset link.</div>
+        <div class="wf-field"><label>Email</label><div class="wf-input"></div></div>
+        <div class="wf-btn solid" style="width:100%;">Send Reset Link</div>
+        <div class="center small mt16" style="text-decoration:underline;">Back to log in</div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Always shows the same confirmation message regardless of whether the email exists, to avoid leaking account existence.</li>
+        <li>Reset link expires after a set window; expired-link state offers to resend.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 04 TA INVITE -->
+  <section class="screen" id="s-tainvite">
+    <div class="screen-head">
+      <div class="crumb">Authentication</div>
+      <h1>04 · TA Invite &amp; Setup</h1>
+      <div class="meta">Instructor delegates access (screen 13) — TA completes setup from an emailed invite, on web.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div style="max-width:420px;margin:0 auto;border:1px solid var(--line);border-radius:8px;padding:28px;">
+        <div class="ph-avatar" style="width:48px;height:48px;margin-bottom:14px;"></div>
+        <div class="ln title mb8" style="width:85%;">Mr. Ahmed invited you as a Teaching Assistant</div>
+        <div class="small mb16">You'll have access to: attendance, grading, and homework uploads for his classes.</div>
+        <div class="wf-field"><label>Full name</label><div class="wf-input"></div></div>
+        <div class="wf-field"><label>Create password</label><div class="wf-input"></div></div>
+        <div class="wf-btn solid" style="width:100%;">Activate TA Account</div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Permission scope (which classes, which actions) is set by the instructor at invite time and shown here so the TA knows the boundaries of their access.</li>
+        <li>On activation, TA lands on TA Dashboard (14) already scoped to the assigned classes.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 05 PARENT & STUDENT INVITE -->
+  <section class="screen" id="s-familyinvite">
+    <div class="screen-head">
+      <div class="crumb">Authentication</div>
+      <h1>05 · Parent &amp; Student Invite &amp; Setup</h1>
+      <div class="meta">Instructor enrolls a student and links a parent (03A of scope); both complete setup from their own invite link, on mobile.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="row gap14" style="justify-content:center;flex-wrap:wrap;">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="phone-topbar"><div class="small">Student setup</div></div>
+            <div class="phone-body">
+              <div class="ph-avatar" style="width:52px;height:52px;margin:6px auto 12px;"></div>
+              <div class="ln title center" style="width:80%;margin:0 auto 6px;"></div>
+              <div class="small center mb16">You've been enrolled in Mr. Ahmed's IG Physics class</div>
+              <div class="wf-field"><label>Create password</label><div class="wf-input"></div></div>
+              <div class="fab">Activate My Account</div>
+            </div>
+            <div class="phone-tabbar"><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div></div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="phone-topbar"><div class="small">Parent setup</div></div>
+            <div class="phone-body">
+              <div class="ph-avatar" style="width:52px;height:52px;margin:6px auto 12px;"></div>
+              <div class="ln title center" style="width:80%;margin:0 auto 6px;"></div>
+              <div class="small center mb16">Follow your child's attendance, grades &amp; fees</div>
+              <div class="wf-field"><label>Create password</label><div class="wf-input"></div></div>
+              <div class="fab">Activate My Account</div>
+            </div>
+            <div class="phone-tabbar"><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div><div class="tabitem"><div class="ico"></div><div class="lbl"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Instructor can invite the parent and student together or the student can add a parent later from their own settings — either way the link is auto-approved for the instructor's classes, no manual matching.</li>
+        <li>One parent account can be linked to multiple children/instructors; Parent Home (17) is where those links surface as a switcher.</li>
+        <li>Student lands on Student Dashboard (19); parent lands on Parent Home (17).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 06 INSTRUCTOR DASHBOARD -->
+  <section class="screen" id="s-idash">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>06 · Instructor Dashboard</h1>
+      <div class="meta">Master control center — courses, schedule, revenue and performance in one view.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item on"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar">
+              <div class="ln title" style="width:180px;">Good morning, Ahmed</div>
+              <div class="row gap10"><div class="ph-avatar" style="width:26px;height:26px;"></div><div class="ln sm" style="width:70px;"></div></div>
+            </div>
+            <div class="grid4 mb16">
+              <div class="wf-card center"><div class="ln sm" style="width:60%;margin:0 auto;"></div><div class="ln title center" style="width:40%;margin:8px auto 0;">158</div></div>
+              <div class="wf-card center"><div class="ln sm" style="width:60%;margin:0 auto;"></div><div class="ln title center" style="width:40%;margin:8px auto 0;">6</div></div>
+              <div class="wf-card center"><div class="ln sm" style="width:60%;margin:0 auto;"></div><div class="ln title center" style="width:40%;margin:8px auto 0;">4</div></div>
+              <div class="wf-card center"><div class="ln sm" style="width:60%;margin:0 auto;"></div><div class="ln title center" style="width:40%;margin:8px auto 0;">12</div></div>
+            </div>
+            <div class="wf-card mb16">
+              <div class="row between mb8"><span class="small" style="color:#666;font-weight:600;">Today's sessions</span><span class="small" style="text-decoration:underline;">Open calendar</span></div>
+              <table class="wf-table">
+                <tr><th>Time</th><th>Class</th><th>Type</th><th>Attendance</th><th></th></tr>
+                <tr><td>10:00 AM</td><td>IG Physics — Section B</td><td><span class="badge-dot green"></span>Online</td><td>—</td><td class="wf-btn sm ghost">Join</td></tr>
+                <tr><td>4:00 PM</td><td>IG Physics — Revision</td><td><span class="badge-dot amber"></span>Center</td><td>—</td><td class="wf-btn sm ghost">Open</td></tr>
+              </table>
+            </div>
+            <div class="grid2">
+              <div class="wf-card">
+                <div class="small mb8">Needs grading</div>
+                <div class="row between"><span class="small">Quiz — Kinematics</span><span class="small">24 pending</span></div>
+                <div class="wf-btn sm ghost mt12">Go to Grading</div>
+              </div>
+              <div class="wf-card">
+                <div class="small mb8">Quick actions</div>
+                <div class="row gap8"><span class="wf-btn sm solid">+ Post Quiz</span><span class="wf-btn sm ghost">+ Schedule Session</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Directly targets Ahmed's pain point: posting a quiz or updating a schedule takes seconds via the quick actions and today's-sessions strip.</li>
+        <li>"Needs grading" surfaces ungraded submissions across all sections and can be delegated to a TA in one tap (see 15).</li>
+        <li>Stat cards deep-link into Student Roster (11), Courses (07) and Schedule (09) respectively, pre-filtered.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 07 COURSE & CURRICULUM BUILDER -->
+  <section class="screen" id="s-curriculum">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>07 · Course &amp; Curriculum Builder</h1>
+      <div class="meta">Modular structure — subjects → terms → chapters → lessons.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item on"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar">
+              <div class="ln title" style="width:220px;">IG Physics — Term 1</div>
+              <div class="wf-btn solid sm">+ Add Chapter</div>
+            </div>
+            <div class="wf-card mb12">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">Chapter 1 — Kinematics</span><span class="small" style="text-decoration:underline;">Edit</span></div>
+              <div class="row between mb8" style="border-top:1px solid var(--line);padding-top:8px;"><span class="small">Lesson 1.1 — Distance &amp; Displacement</span><span class="wf-chip solid">Published</span></div>
+              <div class="row between mb8" style="border-top:1px solid var(--line);padding-top:8px;"><span class="small">Lesson 1.2 — Speed &amp; Velocity</span><span class="wf-chip solid">Published</span></div>
+              <div class="row between" style="border-top:1px solid var(--line);padding-top:8px;"><span class="small">Lesson 1.3 — Acceleration</span><span class="wf-chip">Draft</span></div>
+            </div>
+            <div class="wf-card mb12">
+              <div class="row between"><span class="small" style="font-weight:600;">Chapter 2 — Forces</span><span class="small" style="text-decoration:underline;">Edit</span></div>
+            </div>
+            <div class="wf-btn ghost sm">+ Add Lesson</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Tree structure is drag-to-reorder at every level (chapters, lessons); collapsing chapters keeps long syllabi scannable.</li>
+        <li>Each lesson opens the Content &amp; Assessment Hub (08) scoped to that lesson to attach materials and quizzes.</li>
+        <li>"Published" vs "Draft" controls what's visible on the student's Lesson view (20) — drafts are invisible to students and parents.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 08 CONTENT & ASSESSMENT HUB -->
+  <section class="screen" id="s-content">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>08 · Content &amp; Assessment Hub</h1>
+      <div class="meta">Attach materials to a lesson and build quizzes — replaces emailing PDFs one by one.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item on"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:220px;">Lesson 1.2 — Speed &amp; Velocity</div></div>
+            <div class="tab-row"><div class="tab on">Materials</div><div class="tab">Quiz Builder</div><div class="tab">Homework</div></div>
+            <div class="wf-card mb12">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">Files</span><span class="wf-btn sm ghost">+ Upload</span></div>
+              <div class="row between mb8" style="border-top:1px solid var(--line);padding-top:8px;"><span class="small">📄 Lecture Notes — Speed &amp; Velocity.pdf</span><span class="small">1.2 MB</span></div>
+              <div class="row between" style="border-top:1px solid var(--line);padding-top:8px;"><span class="small">🎬 Recorded lecture (42 min)</span><span class="small">video</span></div>
+            </div>
+            <div class="wf-card">
+              <div class="small mb8" style="font-weight:600;">Preview — Quiz Builder tab</div>
+              <div class="row between mb8"><span class="small">Q1. Multiple choice</span><span class="small">2 pts</span></div>
+              <div class="row gap8" style="flex-wrap:wrap;"><span class="wf-chip">A</span><span class="wf-chip solid">B ✓</span><span class="wf-chip">C</span><span class="wf-chip">D</span></div>
+              <div class="wf-btn ghost sm mt12">+ Add Question</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Materials support secure, view-only or downloadable modes per file, set at upload.</li>
+        <li>Quiz Builder supports MCQ (auto-graded) and structured/written answers (manual or TA-assisted grading, routed to screen 15).</li>
+        <li>Publishing from any tab here instantly reflects on the Student's Lesson view (20) and triggers a real-time update on Parent Home (17) if it's graded work.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 09 UNIFIED SCHEDULING -->
+  <section class="screen" id="s-calendar">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>09 · Unified Scheduling</h1>
+      <div class="meta">One calendar for both physical center classes and virtual sessions.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item on"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar">
+              <div class="ln title" style="width:160px;">Aug 2026</div>
+              <div class="row gap8"><span class="wf-chip solid">Week</span><span class="wf-chip">Month</span><span class="wf-btn sm solid">+ New Session</span></div>
+            </div>
+            <div class="grid3">
+              <div class="wf-card"><div class="small" style="font-weight:600;">Mon 31</div><div class="wf-chip solid mt8">10:00 · Online</div><div class="small mt8">IG Physics B</div></div>
+              <div class="wf-card"><div class="small" style="font-weight:600;">Tue 1</div><div class="wf-chip mt8">4:00 · Center Rm 2</div><div class="small mt8">IG Physics Revision</div></div>
+              <div class="wf-card"><div class="small" style="font-weight:600;">Wed 2</div><div class="wf-chip solid mt8">10:00 · Online</div><div class="small mt8">IG Physics B</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>"+ New Session" form toggles between Online (embeds a Zoom/Meet link, auto-generates if connected) and Offline (location picker, room name).</li>
+        <li>Any change here propagates instantly to Student Dashboard (19) and Parent Home (17) — addresses "real-time synchronization" from the scope doc.</li>
+        <li>Recurring sessions can be set weekly per section; editing one occurrence prompts "this session only" vs "this and following".</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 10 CLASS SESSION VIEW -->
+  <section class="screen" id="s-session">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>10 · Class Session View</h1>
+      <div class="meta">Live session screen — video embed plus attendance, whether online or offline.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item on"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="row gap14 mb16" style="align-items:flex-start;">
+              <div class="ph-img" style="flex:1;height:230px;"></div>
+              <div style="width:210px;">
+                <div class="small mb8" style="font-weight:600;">Attendance (24)</div>
+                <div class="row between mb8"><span class="small">Mariam K.</span><span class="badge-dot green"></span></div>
+                <div class="row between mb8"><span class="small">Youssef T.</span><span class="badge-dot green"></span></div>
+                <div class="row between mb8"><span class="small">Layla M.</span><span class="badge-dot red"></span></div>
+                <div class="wf-btn sm ghost mt8">Mark all present</div>
+              </div>
+            </div>
+            <div class="wf-btn solid">End Session &amp; Save Attendance</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Online sessions auto-mark attendance from the video tool's join log where integration allows; instructor/TA can still override manually.</li>
+        <li>Offline sessions default to this same attendance list with no video panel — instructor or TA checks students off as they arrive.</li>
+        <li>"End Session &amp; Save Attendance" is what instantly updates Parent Home (17) attendance badges.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 11 STUDENT ROSTER & PERFORMANCE -->
+  <section class="screen" id="s-roster">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>11 · Student Roster &amp; Performance</h1>
+      <div class="meta">Who's keeping up and who isn't — across 150+ students and multiple sections.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item on"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar">
+              <div class="ln title" style="width:200px;">Students (158)</div>
+              <div class="wf-input" style="width:200px;height:30px;"></div>
+            </div>
+            <div class="row gap8 mb16"><div class="wf-chip solid">All sections</div><div class="wf-chip">Section A</div><div class="wf-chip">Section B</div><div class="wf-chip">Revision</div></div>
+            <table class="wf-table">
+              <tr><th>Name</th><th>Section</th><th>Attendance</th><th>Last quiz</th><th>Homework</th><th></th></tr>
+              <tr><td>Mariam K.</td><td>B</td><td>96%</td><td>88%</td><td><span class="badge-dot green"></span>Submitted</td><td class="wf-btn sm ghost">Open</td></tr>
+              <tr><td>Youssef T.</td><td>B</td><td>70%</td><td>54%</td><td><span class="badge-dot amber"></span>Late</td><td class="wf-btn sm ghost">Open</td></tr>
+              <tr><td>Layla M.</td><td>A</td><td>45%</td><td>—</td><td><span class="badge-dot red"></span>Missing</td><td class="wf-btn sm ghost">Open</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Row click opens a per-student detail panel: full attendance history, quiz/homework record, and linked parent contact — the single source of truth that replaces WhatsApp back-and-forth with parents.</li>
+        <li>Filters by section and status ("missing homework", "low attendance") let Ahmed triage at a glance across all 150+ students.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 12 FEES & REVENUE -->
+  <section class="screen" id="s-fees">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>12 · Fees &amp; Revenue</h1>
+      <div class="meta">Revenue overview and per-student fee/payment status — the data behind Parent Home's fee badge.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item on"><div class="ico"></div>Fees</div>
+            <div class="side-item"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:180px;">Fees &amp; Revenue</div></div>
+            <div class="grid3 mb16">
+              <div class="wf-card center"><div class="small">This month</div><div class="ln title center" style="width:50%;margin:8px auto;"></div></div>
+              <div class="wf-card center"><div class="small">Outstanding</div><div class="ln title center" style="width:50%;margin:8px auto;"></div></div>
+              <div class="wf-card center"><div class="small">Paid on time</div><div class="ln title center" style="width:40%;margin:8px auto;">91%</div></div>
+            </div>
+            <table class="wf-table">
+              <tr><th>Student</th><th>Section</th><th>Plan</th><th>Status</th><th></th></tr>
+              <tr><td>Mariam K.</td><td>B</td><td>Monthly</td><td><span class="badge-dot green"></span>Paid</td><td class="small" style="text-decoration:underline;">Receipt</td></tr>
+              <tr><td>Layla M.</td><td>A</td><td>Monthly</td><td><span class="badge-dot red"></span>Overdue</td><td class="wf-btn sm ghost">Send reminder</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>"Send reminder" notifies the linked parent directly (surfaces on Parent Home, 17) rather than the instructor chasing payment manually.</li>
+        <li>Fee status here is exactly what renders as the payment badge on the parent's Child Detail view (18).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 13 INSTRUCTOR SETTINGS -->
+  <section class="screen" id="s-isettings">
+    <div class="screen-head">
+      <div class="crumb">Instructor Dashboard · Mr. Ahmed</div>
+      <h1>13 · Instructor Settings</h1>
+      <div class="meta">Profile, team access (TAs) and billing — access hierarchy lives here.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Courses</div>
+            <div class="side-item"><div class="ico"></div>Content</div>
+            <div class="side-item"><div class="ico"></div>Schedule</div>
+            <div class="side-item"><div class="ico"></div>Students</div>
+            <div class="side-item"><div class="ico"></div>Fees</div>
+            <div class="side-item on"><div class="ico"></div>Settings</div>
+          </div>
+          <div class="app-content">
+            <div class="tab-row"><div class="tab">Profile</div><div class="tab on">Team &amp; TAs</div><div class="tab">Billing</div></div>
+            <div class="row between mb16"><span class="small" style="font-weight:600;">Teaching Assistants</span><span class="wf-btn sm solid">+ Invite TA</span></div>
+            <table class="wf-table">
+              <tr><th>Name</th><th>Scope</th><th>Permissions</th><th></th></tr>
+              <tr><td><span class="ph-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:6px;"></span>Nour F.</td><td>All sections</td><td>Grading, Attendance</td><td class="wf-btn sm ghost">Edit</td></tr>
+              <tr><td><span class="ph-avatar" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:6px;"></span>Omar S.</td><td>Section A only</td><td>Attendance only</td><td class="wf-btn sm ghost">Edit</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>"+ Invite TA" opens a modal to set name/email, section scope, and specific permissions (attendance / grading / homework upload) before sending the invite (screen 04).</li>
+        <li>Revoking a TA immediately removes their access without deleting their grading history.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 14 TA DASHBOARD -->
+  <section class="screen" id="s-tadash">
+    <div class="screen-head">
+      <div class="crumb">TA Portal</div>
+      <h1>14 · TA Dashboard</h1>
+      <div class="meta">Scoped view — only the sections and tasks the instructor delegated.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item on"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Grading</div>
+            <div class="side-item"><div class="ico"></div>Attendance</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:200px;">Welcome, Nour</div></div>
+            <div class="grid2 mb16">
+              <div class="wf-card"><div class="small">Assigned sections</div><div class="ln title" style="width:50%;margin:8px 0;"></div><div class="small">IG Physics — A, B, Revision</div></div>
+              <div class="wf-card"><div class="small">Pending grading</div><div class="ln title" style="width:30%;margin:8px 0;">24</div></div>
+            </div>
+            <div class="wf-card">
+              <div class="small mb8" style="font-weight:600;">Today's sessions to cover</div>
+              <table class="wf-table">
+                <tr><th>Time</th><th>Class</th><th></th></tr>
+                <tr><td>4:00 PM</td><td>IG Physics Revision</td><td class="wf-btn sm ghost">Take attendance</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Sidebar only shows Grading and Attendance — no course-building, scheduling or billing tools, matching the "delegated access" scope.</li>
+        <li>Instructor can see everything a TA does; TA cannot see instructor-only areas like Fees or Settings.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 15 GRADING QUEUE -->
+  <section class="screen" id="s-grading">
+    <div class="screen-head">
+      <div class="crumb">TA Portal</div>
+      <h1>15 · Grading Queue</h1>
+      <div class="meta">Grade quizzes and homework, upload solutions.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item on"><div class="ico"></div>Grading</div>
+            <div class="side-item"><div class="ico"></div>Attendance</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:220px;">Quiz — Kinematics (24 pending)</div></div>
+            <div class="wf-card mb12">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">Youssef T. — Q4 (structured answer)</span><span class="small">2 pts</span></div>
+              <div class="ph-img" style="height:60px;width:100%;"></div>
+              <div class="row gap8 mt8"><span class="wf-input" style="width:70px;height:30px;"></span><span class="small">/ 2 pts</span><span class="wf-btn sm solid">Save</span><span class="wf-btn sm ghost">Skip</span></div>
+            </div>
+            <div class="small">MCQs auto-graded — 18/24 already complete. Showing structured-answer items only.</div>
+            <div class="wf-btn ghost sm mt12">+ Upload homework solutions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>MCQ questions are auto-graded on submission; this queue is only for structured/written answers needing a human grade.</li>
+        <li>Grades saved here sync instantly to the student's Quiz result and the parent's Child Detail view (18).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 16 ATTENDANCE TAKING -->
+  <section class="screen" id="s-attendance">
+    <div class="screen-head">
+      <div class="crumb">TA Portal</div>
+      <h1>16 · Attendance Taking</h1>
+      <div class="meta">Same attendance component the instructor uses, scoped to the TA's assigned session.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Dashboard</div>
+            <div class="side-item"><div class="ico"></div>Grading</div>
+            <div class="side-item on"><div class="ico"></div>Attendance</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:220px;">IG Physics Revision — 4:00 PM</div></div>
+            <table class="wf-table">
+              <tr><th>Student</th><th>Present</th></tr>
+              <tr><td>Mariam K.</td><td><span class="wf-chip solid">Present</span></td></tr>
+              <tr><td>Youssef T.</td><td><span class="wf-chip">Absent</span></td></tr>
+              <tr><td>Layla M.</td><td><span class="wf-chip">Absent</span></td></tr>
+            </table>
+            <div class="wf-btn solid mt16">Save Attendance</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Works for both offline (center) and online sessions — same tap-to-toggle interaction as the instructor's Session View (10).</li>
+        <li>Saving updates the parent's attendance badge (18) in real time.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 17 PARENT HOME -->
+  <section class="screen" id="s-phome">
+    <div class="screen-head">
+      <div class="crumb">Parent Portal · Sara</div>
+      <h1>17 · Parent Home</h1>
+      <div class="meta">Zero-effort overview for a parent with more than one child enrolled.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-topbar"><div class="row between"><div class="ln sm" style="width:35%;"></div><div class="ico" style="width:16px;height:16px;border:1.6px solid var(--line-strong);"></div></div></div>
+          <div class="phone-body">
+            <div class="small mb8">Your children</div>
+            <div class="wf-card mb8">
+              <div class="row gap8"><div class="ph-avatar" style="width:36px;height:36px;"></div>
+                <div style="flex:1;"><div class="small" style="font-weight:600;">Youssef — IG Physics</div><div class="row gap8 mt8"><span class="wf-chip solid"><span class="badge-dot amber"></span>70% attend.</span><span class="wf-chip"><span class="badge-dot amber"></span>54% avg</span></div></div>
+              </div>
+            </div>
+            <div class="wf-card mb16">
+              <div class="row gap8"><div class="ph-avatar" style="width:36px;height:36px;"></div>
+                <div style="flex:1;"><div class="small" style="font-weight:600;">Layla — American Diploma Math</div><div class="row gap8 mt8"><span class="wf-chip solid"><span class="badge-dot red"></span>45% attend.</span><span class="wf-chip"><span class="badge-dot red"></span>Fee overdue</span></div></div>
+              </div>
+            </div>
+            <div class="small mb8" style="font-weight:600;">Recent updates</div>
+            <div class="wf-card mb8"><div class="small">Layla missed today's 4:00 PM session</div><div class="small" style="color:#aaa;">1h ago</div></div>
+            <div class="wf-card"><div class="small">Youssef scored 54% on Kinematics quiz</div><div class="small" style="color:#aaa;">Yesterday</div></div>
+          </div>
+          <div class="phone-tabbar">
+            <div class="tabitem on"><div class="ico"></div><div class="lbl"></div></div>
+            <div class="tabitem"><div class="ico"></div><div class="lbl"></div></div>
+            <div class="tabitem"><div class="ico"></div><div class="lbl"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Directly answers Sara's pain point: attendance and grade badges are visible the moment a session ends or a quiz is graded — no waiting for report cards.</li>
+        <li>Tapping a child's card opens Child Detail View (18); tapping an update deep-links to the specific session or quiz.</li>
+        <li>Color-coded badges (green/amber/red) require no interpretation — "zero technical effort to navigate."</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 18 CHILD DETAIL VIEW -->
+  <section class="screen" id="s-pchild">
+    <div class="screen-head">
+      <div class="crumb">Parent Portal · Sara</div>
+      <h1>18 · Child Detail View</h1>
+      <div class="meta">Full attendance record, grades and fee status for one child.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-topbar"><div class="small" style="text-decoration:underline;">← Back to Parent Home</div></div>
+          <div class="phone-body">
+            <div class="row gap14 mb16"><div class="ph-avatar" style="width:48px;height:48px;"></div><div><div class="ln title" style="width:110px;">Layla</div><div class="small">American Diploma Math</div></div></div>
+            <div class="tab-row"><div class="tab on">Attendance</div><div class="tab">Grades</div><div class="tab">Fees</div><div class="tab">Schedule</div></div>
+            <div class="wf-card mb8"><div class="row between"><span class="small">Aug 29 — Algebra Session</span><span class="badge-dot red"></span></div></div>
+            <div class="wf-card mb8"><div class="row between"><span class="small">Aug 27 — Algebra Session</span><span class="badge-dot green"></span></div></div>
+            <div class="wf-card"><div class="row between"><span class="small">Aug 25 — Algebra Session</span><span class="badge-dot green"></span></div></div>
+          </div>
+          <div class="phone-tabbar">
+            <div class="tabitem on"><div class="ico"></div><div class="lbl"></div></div>
+            <div class="tabitem"><div class="ico"></div><div class="lbl"></div></div>
+            <div class="tabitem"><div class="ico"></div><div class="lbl"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>All four tabs are read-only — parents monitor but never edit grades, attendance or schedule.</li>
+        <li>Fees tab links out to a payment screen matching the instructor's fee record (12); paying here clears the "overdue" badge on Parent Home in real time.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 19 STUDENT DASHBOARD -->
+  <section class="screen" id="s-shome">
+    <div class="screen-head">
+      <div class="crumb">Student Portal</div>
+      <h1>19 · Student Dashboard</h1>
+      <div class="meta">Clean, focused home — what's due, what's next.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item on"><div class="ico"></div>Home</div>
+            <div class="side-item"><div class="ico"></div>My Courses</div>
+            <div class="side-item"><div class="ico"></div>Quizzes</div>
+            <div class="side-item"><div class="ico"></div>Homework</div>
+            <div class="side-item"><div class="ico"></div>Profile</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:200px;">Hi, Youssef</div></div>
+            <div class="wf-card mb16">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">Next up</span><span class="small">Today, 10:00 AM</span></div>
+              <div class="row between"><span class="small">IG Physics — Live Class</span><span class="wf-btn sm solid">Join Now</span></div>
+            </div>
+            <div class="grid2">
+              <div class="wf-card"><div class="small" style="font-weight:600;">Due soon</div><div class="row between mt8"><span class="small">Quiz — Kinematics</span><span class="wf-chip">Due tmrw</span></div></div>
+              <div class="wf-card"><div class="small" style="font-weight:600;">Recent grade</div><div class="row between mt8"><span class="small">Homework 1.1</span><span class="small">8/10</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>"Join Now" only activates within the join window of a scheduled session; otherwise shows countdown.</li>
+        <li>"Due soon" surfaces quizzes/homework across all enrolled courses sorted by deadline.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 20 LESSON & MATERIALS VIEW -->
+  <section class="screen" id="s-lesson">
+    <div class="screen-head">
+      <div class="crumb">Student Portal</div>
+      <h1>20 · Lesson &amp; Materials View</h1>
+      <div class="meta">Where published notes and recorded lectures live, organized by chapter.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-sidebar">
+            <div class="logo-ph"></div>
+            <div class="side-item"><div class="ico"></div>Home</div>
+            <div class="side-item on"><div class="ico"></div>My Courses</div>
+            <div class="side-item"><div class="ico"></div>Quizzes</div>
+            <div class="side-item"><div class="ico"></div>Homework</div>
+            <div class="side-item"><div class="ico"></div>Profile</div>
+          </div>
+          <div class="app-content">
+            <div class="app-topbar"><div class="ln title" style="width:220px;">IG Physics — Chapter 1: Kinematics</div></div>
+            <div class="wf-card mb12">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">1.1 Distance &amp; Displacement</span><span class="wf-chip solid">Done</span></div>
+              <div class="row gap8"><span class="small">📄 Notes.pdf</span><span class="small">🎬 Recording</span></div>
+            </div>
+            <div class="wf-card">
+              <div class="row between mb8"><span class="small" style="font-weight:600;">1.2 Speed &amp; Velocity</span><span class="wf-chip">In progress</span></div>
+              <div class="row gap8"><span class="small">📄 Notes.pdf</span><span class="small">🎬 Recording</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Only lessons marked "Published" by the instructor (07) appear here; drafts are invisible.</li>
+        <li>Opening a file logs a "viewed" state the instructor can see on the roster (11), useful for tracking engagement beyond attendance.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 21 LIVE CLASS -->
+  <section class="screen" id="s-liveclass">
+    <div class="screen-head">
+      <div class="crumb">Student Portal</div>
+      <h1>21 · Live Class</h1>
+      <div class="meta">Embedded video session with attendance auto-captured on join.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-content" style="width:100%;">
+            <div class="app-topbar"><div class="ln title" style="width:200px;">IG Physics — Section B</div><div class="small">● You are marked present</div></div>
+            <div class="ph-img" style="height:340px;width:100%;"></div>
+            <div class="row gap8 mt16" style="justify-content:center;">
+              <span class="wf-btn sm ghost">🎤 Mute</span><span class="wf-btn sm ghost">📷 Camera</span><span class="wf-btn sm ghost">💬 Chat</span><span class="wf-btn sm solid">Leave</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Video panel embeds the linked Zoom/Google Meet session directly, rather than sending the student to an external link.</li>
+        <li>Attendance is marked automatically on join and reconciled with the instructor's Session View (10); leaving early can flag partial attendance.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 22 QUIZ TAKING -->
+  <section class="screen" id="s-quiz">
+    <div class="screen-head">
+      <div class="crumb">Student Portal</div>
+      <h1>22 · Quiz Taking</h1>
+      <div class="meta">MCQ auto-graded on submit; structured answers routed to a grader (15).</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-content" style="width:100%;">
+            <div class="app-topbar"><div class="ln title" style="width:200px;">Quiz — Kinematics</div><div class="small">⏱ 08:42 remaining</div></div>
+            <div class="wf-card mb16">
+              <div class="small mb8" style="font-weight:600;">Q3 of 10 — Which quantity is a vector?</div>
+              <div class="wf-field"><div class="row gap8"><span class="wf-chip">Speed</span><span class="wf-chip solid">Velocity ✓</span><span class="wf-chip">Distance</span><span class="wf-chip">Time</span></div></div>
+            </div>
+            <div class="row between"><span class="wf-btn sm ghost">← Previous</span><span class="wf-btn sm solid">Next →</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Timer and question navigator (not shown at this zoom) let the student jump between answered/unanswered questions before final submit.</li>
+        <li>On submit, MCQ score shows immediately; overall grade (if the quiz includes structured questions) stays "pending" until a human grades it.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 23 HOMEWORK SUBMISSION -->
+  <section class="screen" id="s-homework">
+    <div class="screen-head">
+      <div class="crumb">Student Portal</div>
+      <h1>23 · Homework Submission</h1>
+      <div class="meta">Upload a completed homework sheet against an assigned deadline.</div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="wf-browser">
+        <div class="chrome"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="addr"></div></div>
+        <div class="app-shell">
+          <div class="app-content" style="width:100%;">
+            <div class="app-topbar"><div class="ln title" style="width:220px;">Homework 1.2 — Speed &amp; Velocity</div><div class="wf-chip">Due tomorrow, 11:59 PM</div></div>
+            <div style="max-width:460px;">
+              <div class="wf-field"><label>Attach file</label><div class="ph-img" style="height:90px;"></div></div>
+              <div class="wf-field"><label>Notes for your teacher (optional)</label><div class="wf-input textarea"></div></div>
+              <div class="wf-btn solid" style="width:100%;">Submit Homework</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>Interactions &amp; states</h3>
+      <ol>
+        <li>Submissions after the deadline are flagged "Late" — visible to instructor (11) and parent (18), not hidden.</li>
+        <li>Re-submission is allowed until the instructor grades it; grading locks the submission.</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="footer-note">
+    <span>E-Learning Platform — Project Scope &amp; Personas V1.0 · Wireframe companion</span>
+    <span>MONTU TECH · Internal</span>
+  </div>
+</div>
+
+<script>
+  const items = document.querySelectorAll('.nav-item');
+  const screens = document.querySelectorAll('.screen');
+  items.forEach(item=>{
+    item.addEventListener('click', ()=>{
+      items.forEach(i=>i.classList.remove('active'));
+      screens.forEach(s=>s.classList.remove('active'));
+      item.classList.add('active');
+      document.getElementById(item.dataset.target).classList.add('active');
+      document.querySelector('.main').scrollTop = 0;
+      window.scrollTo(0,0);
+    });
+  });
+  items[0].classList.add('active');
+</script>
+
+</body>
+</html>
