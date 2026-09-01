@@ -27,7 +27,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:check": "tsx src/scripts/db-check.ts"
+    "db:check": "tsx src/scripts/db-check.ts",
+    "docs:lint": "npx -y @redocly/cli@latest lint docs/api/openapi.yaml --extends=minimal",
+    "docs:publish": "npx -y @gitbook/cli@latest openapi publish --spec ${GITBOOK_SPEC_NAME:-montu-api} --organization $GITBOOK_ORGANIZATION_ID docs/api/openapi.yaml"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

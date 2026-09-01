@@ -1,0 +1,38 @@
+name: Publish OpenAPI to GitBook
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/api/openapi.yaml'
+      - '.github/workflows/gitbook-openapi.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: gitbook-openapi
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Lint & publish spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Structural validation only. A broken spec published to GitBook renders
+      # empty API blocks with no error, so catch it here instead.
+      - name: Lint OpenAPI spec
+        run: npx -y @redocly/cli@latest lint docs/api/openapi.yaml --extends=minimal
+
+      - name: Publish to GitBook
+        env:
+          GITBOOK_TOKEN: ${{ secrets.GITBOOK_TOKEN }}
+        run: |
+          npx -y @gitbook/cli@latest openapi publish \
+            --spec "${{ vars.GITBOOK_SPEC_NAME }}" \
+            --organization "${{ vars.GITBOOK_ORGANIZATION_ID }}" \
+            docs/api/openapi.yaml
