@@ -40,7 +40,7 @@ controlled by two independent axes, both on `GROUP_ASSISTANTS`:
 **Scope** — which groups. One row per group. "All sections" is stored as N rows, not a wildcard,
 which means a TA does **not** automatically gain access to sections created later.
 
-**Permissions** — three booleans, matching the invite-time checkboxes exactly:
+**Permissions** — three booleans on `GROUP_ASSISTANTS`, granted once with [Edit](../reference/assistants.md) after the TA accepts. They are not on the invite:
 
 | Flag | Gates |
 |---|---|
@@ -60,8 +60,8 @@ and nothing else. Hitting the grading queue returns `403`.
 ## Account creation
 
 Only instructors self-register. Teaching assistant, student and parent accounts are **always**
-created through an [invite](../reference/invites.md) issued by an instructor, which carries the
-scope the new account will hold.
+created through an [invite](../reference/invites.md). Instructors issue most of them; a student may
+issue a parent invite for themselves.
 
 ## Parent access
 

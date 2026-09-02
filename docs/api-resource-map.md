@@ -143,7 +143,7 @@ Consequences:
 
 | # | Resource root | Backing entities | Primary screens |
 |---|---|---|---|
-| R1 | `/auth` | `USERS`, `USER_SESSIONS`, `USER_ROLES` | 01, 02, 03 |
+| R1 | `/auth` | `USERS`, `USER_SESSIONS`, `USER_ROLES` (OTP in cache, not a table) | 01, 02, 03 |
 | R2 | `/invites` | `INVITES`, `INVITE_GROUPS` | 04, 05, 13 |
 | R3 | `/me` | `USERS`, `TEACHERS`, `STUDENTS` | 13, 19 |
 | R4 | `/plans`, `/subscriptions` | `SUBSCRIPTION_PLANS`, `SUBSCRIPTIONS` | 02, 13 |
@@ -155,7 +155,7 @@ Consequences:
 | R10 | `/uploads` | — (transport only, `GAP E18`) | 08, 15, 23 |
 | R11 | `/groups` | `GROUPS`, `STUDENT_GROUPS`, `GROUP_ASSISTANTS` | 09, 11, 13 |
 | R12 | `/assistants` | `GROUP_ASSISTANTS` (scope + three permission flags) | 04, 13 |
-| R13 | `/live-sessions` | `LIVE_SESSIONS` | 09, 10, 14, 16, 21 |
+| R13 | `/live-sessions` | `LIVE_SESSIONS`, `SESSION_SERIES` | 09, 10, 14, 16, 21 |
 | R14 | `/attendance` | `ATTENDANCE` | 10, 16, 21 |
 | R15a | `/assignments` | `ASSIGNMENTS`, `ASSIGNMENT_SUBMISSIONS` | 08, 11, 20, 23 |
 | R15b | `/quizzes` | `QUIZZES`, `QUIZ_QUESTIONS` | 08, 19, 22 |
@@ -163,7 +163,7 @@ Consequences:
 | R17 | `/grading` | `QUIZ_ATTEMPTS` (queue views) | 06, 14, 15 |
 | R18 | `/students` | `STUDENTS` + derived aggregates | 11 |
 | R19 | `/dashboards` | derived across all | 06, 14, 17, 19 |
-| R20 | `/fees`, `/payments` | 🚫 `PAYMENTS` (`G2`) | 12, 18 |
+| R20 | `/fees`, `/payments` | `ENROLLMENT_FEES`, `PAYMENTS` | 12, 18 |
 | R21 | `/children` | `PARENTS`, `PARENT_STUDENTS` | 17, 18 |
 | R22 | `/notifications` | `NOTIFICATIONS` | 12, 17 |
 | R23 | `/events` | — (SSE transport, `GAP D23`) | 08, 09, 10, 15, 16, 17, 18 |
@@ -179,28 +179,28 @@ Consequences:
 | POST | `/auth/login` | Email + password → access + refresh. Resolves role server-side and returns the routing target | `—` | — | 01 | ✅ |
 | POST | `/auth/refresh` | Rotate refresh token against `USER_SESSIONS` | `—` | — | — | ✅ |
 | POST | `/auth/logout` | Revoke current `USER_SESSIONS` row (`is_revoked`) | all | `self` | — | ✅ |
-| POST | `/auth/register` | Instructor self-signup, step 1 of 3. Creates `USERS` + `TEACHERS` + `USER_ROLES(TEACHER)` | `—` | — | 02 | ⚠️ |
+| POST | `/auth/register` | Instructor self-signup, step 1 of 3. Creates `USERS` + `TEACHERS` + `USER_ROLES(TEACHER)` | `—` | — | 02 | ✅ |
 | GET | `/auth/me` | Current user, roles, routing target | all | `self` | all | ✅ |
-| POST | `/auth/password/forgot` | Request reset link. **Uniform 202 whether or not the email exists** (`WF 03`) | `—` | — | 03 | 🚫 `G5` |
-| POST | `/auth/password/reset` | Consume token, set new password | `—` | — | 03 | 🚫 `G5` |
-| GET | `/me/profile` | Profile tab | all | `self` | 13, 19 | ⚠️ |
-| PATCH | `/me/profile` | Edit profile | all | `self` | 13, 19 | ⚠️ |
-| GET | `/me/sessions` | Active devices — `USER_SESSIONS` has `user_agent`/`ip_address` with no screen (`GAP B3`) | all | `self` | — | ⚠️ |
-| DELETE | `/me/sessions/{sessionId}` | Revoke one device | all | `self` | — | ⚠️ |
+| POST | `/auth/password/forgot` | Email a 6-digit OTP. **Uniform 202 whether or not the email exists** (`WF 03`). Replaces any live OTP for that user | `—` | — | 03 | ✅ |
+| POST | `/auth/password/reset` | `email` + `otp` + new password. No token. Wrong or unknown email both return `401 INVALID_OTP` | `—` | — | 03 | ✅ |
+| GET | `/me/profile` | Profile tab | all | `self` | 13, 19 | ✅ |
+| PATCH | `/me/profile` | Edit profile (`full_name`, `avatar_url`, `subjects_taught`, `curriculum`) | all | `self` | 13, 19 | ✅ |
+| GET | `/me/sessions` | Active devices — non-revoked `USER_SESSIONS` | all | `self` | — | ✅ |
+| DELETE | `/me/sessions/{sessionId}` | Revoke one device (`is_revoked`) | all | `self` | — | ✅ |
 
-**Notes.** `POST /auth/register` is ⚠️ because WF 02 captures *full name* as one field, *subject(s)* plural, and a curriculum enum, none of which the ERD holds (`GAP A21`, `G16`). Document the request body against the wireframe and flag the three fields as pending schema changes.
+**Notes.** `POST /auth/register` matches WF 02: `full_name` (one field on `USERS`), `subjects_taught` (one string on `TEACHERS`), and `curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH` on `TEACHERS`). Login `remember_me` is stored on `USER_SESSIONS`.
 
 ### 5.2 Invites & onboarding — R2 ✅
 
-Every non-instructor account arrives this way. An invite is a **promise of the rows acceptance will write**, which is why `INVITE_GROUPS` mirrors `GROUP_ASSISTANTS` column for column — accepting is a copy, not a translation.
+Every non-instructor account arrives this way. An invite is a **promise of the rows acceptance will write**. `INVITE_GROUPS` stores which groups; it does **not** carry the three permission flags. For a TA, acceptance copies group ids into `GROUP_ASSISTANTS` with all flags false; the instructor grants capabilities once from WF 13 Edit.
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
-| POST | `/invites` | Issue an invite. `role` is `ASSISTANT`, `STUDENT` or `PARENT`; scope is groups + the three flags, or `linked_student_id` for a parent | `I` `S` | `own-course` / `self` | 13, 05 | ⚠️ |
+| POST | `/invites` | Issue an invite. Upsert on live `(email, role, issuer)`. `group_ids` for TA/student; `linked_student_id` for parent | `I` `S` | `own-course` / `self` | 13, 05 | ✅ |
 | GET | `/invites` | Outstanding invites — the issuer's own | `I` `S` | `own-course` / `self` | 13 | ✅ |
-| DELETE | `/invites/{inviteId}` | Rescind. Sets `revoked_at`; the row survives as audit | `I` `S` | `own-course` / `self` | 13 | ⚠️ |
-| GET | `/invite-tokens/{token}` | **Public** preview — inviter name, role, and the scope as prose | `—` | — | 04, 05 | ✅ |
-| POST | `/invite-tokens/{token}/accept` | Create or attach the account, materialize the scope, return tokens | `—` | — | 04, 05 | ⚠️ |
+| DELETE | `/invites/{inviteId}` | Rescind. Sets `revoked_at` + `revoked_by_user_id`; the row survives | `I` `S` | `own-course` / `self` | 13 | ✅ |
+| GET | `/invite-tokens/{token}` | **Public** preview — inviter name, role, and the scope as prose. Unusable token is `410 INVITE_INVALID` | `—` | — | 04, 05 | ✅ |
+| POST | `/invite-tokens/{token}/accept` | Create or attach the account, materialize the scope, return `AuthSession` | `—` | — | 04, 05 | ✅ |
 
 **Note the issuer.** `issued_by_user_id` references `USERS`, not `TEACHERS`, because **a student may issue a parent invite for themselves** — WF 05 says the instructor can invite parent and student together *or* the student can add a parent later from their own settings. Invariant 10 constrains it: a student may issue only `PARENT`, and only with `linked_student_id` equal to themselves.
 
@@ -208,13 +208,9 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 
 **The public pair moved off `/invites/{id}`.** `/invites/{inviteId}` and `/invites/{token}` are indistinguishable to a router — a real collision, caught by spec linting. Management stays on `/invites`; the token endpoints live at `/invite-tokens/{token}`, which also cleanly separates the authenticated surface from the public one.
 
-**Acceptance is one transaction** and its shape depends on the role: `ASSISTANT` copies each `INVITE_GROUPS` row into `GROUP_ASSISTANTS`; `STUDENT` writes `STUDENT_GROUPS` rows; `PARENT` writes one `PARENT_STUDENTS` row. A spent, revoked or expired token is `410`, never `404` — the recipient followed a real link and deserves to know it is spent.
+**Acceptance is one transaction** and its shape depends on the role: `ASSISTANT` copies each `INVITE_GROUPS` row into `GROUP_ASSISTANTS` with all three flags **false**; `STUDENT` writes `STUDENT_GROUPS` rows; `PARENT` writes one `PARENT_STUDENTS` row. A spent, revoked or expired token is `410`, never `404` — the recipient followed a real link and deserves to know it is spent. TA action permissions are granted afterwards with `PATCH /assistants/{userId}` (WF 13 Edit), so they are not set on the invite and edited again after join.
 
-**The ⚠️ rows, and why:**
-
-- `POST /invites` — whether re-inviting an address updates the live invite or errors. The partial unique index `(email, role, issued_by_user_id) WHERE accepted_at IS NULL AND revoked_at IS NULL` assumes update; confirm that is the intent.
-- `DELETE /invites/{inviteId}` — who may rescind a student-issued parent invite (`GAP D40`). `revoked_at` records that it happened, not who did it; add `revoked_by_user_id` if the distinction matters.
-- `POST .../accept` — whether the token alone suffices or the email must match (`GAP D39`). Token-only is standard and means a forwarded invite still works.
+**Decided.** Re-invite upserts the live row (200) or creates (201). Rescind is allowed by the issuer, and for a student-issued parent invite also by an instructor of that child. Accept is token-only; `password` creates or verifies. Unusable tokens are `410 INVITE_INVALID`.
 
 **One case the schema handles that is easy to miss.** An invited address may already have an account — a parent already linked to a child under a *different* instructor. Acceptance then **attaches** a new `PARENT_STUDENTS` row to the existing user rather than creating a second account, and `accepted_user_id` records which account it resolved to. This is what makes one parent account across multiple instructors work at all.
 
@@ -238,9 +234,9 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | GET | `/courses/{courseId}` | Course header — WF 07's "IG Physics — Term 1" | `I` `A` | `own-course` | 07 | ✅ |
 | PATCH | `/courses/{courseId}` | Rename, edit description, change `status` | `I` | `own-course` | 07 | ✅ |
 | DELETE | `/courses/{courseId}` | Cascades the curriculum spine (`ERD:465-496`) | `I` | `own-course` | — | ⚠️ |
-| GET | `/courses/{courseId}/tree` | **The builder read.** Chapters + lessons + counts + publish state in one call | `I` `A` | `own-course` | 07 | ⚠️ |
+| GET | `/courses/{courseId}/tree` | **The builder read.** Chapters + lessons + counts + publish state in one call | `I` `A` | `own-course` | 07 | ✅ |
 
-**Notes.** `DELETE` is ⚠️ — no screen offers it and `GAP D26` flags deletion-vs-archival as undecided. Document it as existing but note that the UI exposes no path to it. `/tree` is ⚠️ pending the lesson `status` field (`G3`).
+**Notes.** `DELETE` is ⚠️ — no screen offers it and `GAP D26` flags deletion-vs-archival as undecided. Document it as existing but note that the UI exposes no path to it. `/tree` includes `LESSONS.status`.
 
 ### 5.5 Curriculum: chapters — R6
 
@@ -265,8 +261,8 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | PATCH | `/lessons/{lessonId}` | Title, description | `I` | `own-course` | 07, 08 | ✅ |
 | DELETE | `/lessons/{lessonId}` | Cascades materials + recordings; **`SET NULL` on `LIVE_SESSIONS.lesson_id`** | `I` | `own-course` | 07 | ✅ |
 | PUT | `/chapters/{chapterId}/lessons/order` | Bulk reorder within a chapter | `I` | `own-course` | 07 | ✅ |
-| POST | `/lessons/{lessonId}/publish` | Draft → Published; makes it visible on WF 20 | `I` | `own-course` | 07 | 🚫 `G3` |
-| POST | `/lessons/{lessonId}/unpublish` | Published → Draft | `I` | `own-course` | 07 | 🚫 `G3` |
+| POST | `/lessons/{lessonId}/publish` | Draft → Published; makes it visible on WF 20 | `I` | `own-course` | 07 | ✅ |
+| POST | `/lessons/{lessonId}/unpublish` | Published → Draft | `I` | `own-course` | 07 | ✅ |
 
 **Notes.** The `DELETE` doc must state the `SET NULL` behaviour explicitly: **deleting a lesson never destroys attendance history** (`ERD:465-496`). A live session that covered the lesson survives with `lesson_id = null`. Publish/unpublish is modelled as a state transition endpoint rather than a `PATCH` field so the real-time fan-out to WF 20 and WF 17 has one hook.
 
@@ -274,21 +270,19 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
-| GET | `/lessons/{lessonId}/materials` | Files list — name, size, type, access mode | `I` `A` `S` | `own-course` / `own-enrollment` | 08, 20 | ⚠️ |
-| POST | `/lessons/{lessonId}/materials` | Attach an uploaded file. Body sets `access_mode` (view-only / downloadable) | `I` `A` | `own-course` / `assigned-group`+upload | 08 | 🚫 `G7` |
-| PATCH | `/materials/{materialId}` | Rename, change access mode | `I` | `own-course` | 08 | 🚫 `G7` |
+| GET | `/lessons/{lessonId}/materials` | Files list — name, size, type, access mode | `I` `A` `S` | `own-course` / `own-enrollment` | 08, 20 | ✅ |
+| POST | `/lessons/{lessonId}/materials` | Attach an uploaded file. Body sets `access_mode` (view-only / downloadable) | `I` `A` | `own-course` / `assigned-group`+upload | 08 | ✅ |
+| PATCH | `/materials/{materialId}` | Rename, change access mode | `I` | `own-course` | 08 | ✅ |
 | DELETE | `/materials/{materialId}` | Remove file | `I` | `own-course` | 08 | ✅ |
-| GET | `/materials/{materialId}/content` | Issue a short-lived signed URL, honouring `access_mode` | `S` `P` `I` `A` | `own-enrollment` | 20 | 🚫 `G7` |
-| POST | `/materials/{materialId}/views` | Log the "viewed" state WF 20 promises the roster will show | `S` | `own-enrollment` | 20 | 🚫 `G8` |
+| GET | `/materials/{materialId}/content` | Issue a short-lived signed URL, honouring `access_mode` | `S` `P` `I` `A` | `own-enrollment` | 20 | ✅ |
 | GET | `/lessons/{lessonId}/recordings` | Recordings for a lesson | `I` `A` `S` | as above | 08, 20 | ✅ |
-| POST | `/lessons/{lessonId}/recordings` | Add recording — `video_url`, `duration_seconds`, `publish_at`, `deadline`, `max_watch_limit` | `I` | `own-course` | 08 | ⚠️ |
-| PATCH | `/recordings/{recordingId}` | Edit gating fields | `I` | `own-course` | 08 | ⚠️ |
+| POST | `/lessons/{lessonId}/recordings` | Add recording — `video_url`, `duration_seconds`, `publish_at`, `deadline`, `max_watch_limit` | `I` | `own-course` | 08 | ✅ |
+| PATCH | `/recordings/{recordingId}` | Edit gating fields | `I` | `own-course` | 08 | ✅ |
 | DELETE | `/recordings/{recordingId}` | Remove | `I` | `own-course` | 08 | ✅ |
 | PUT | `/lessons/{lessonId}/recordings/order` | Bulk reorder | `I` | `own-course` | 08 | ✅ |
-| POST | `/recordings/{recordingId}/views` | View log — the basis for `max_watch_limit` enforcement | `S` | `own-enrollment` | 20 | 🚫 `G8` |
 | POST | `/uploads` | Request an upload target (signed PUT). Returns `file_url` to pass to the material/recording/submission create | `I` `A` `S` | `self` | 08, 15, 23 | ⚠️ |
 
-**Notes.** `GET /lessons/{lessonId}/materials` is ⚠️ because WF 08 shows "1.2 MB" and a type icon, and neither `size` nor `mime_type` exists on `MATERIALS` (`GAP A9`, `C11`). Recording writes are ⚠️ because `publish_at` / `deadline` / `max_watch_limit` are declarative and unenforced in this pass (`ERD:497-529`, `GAP E14`) — the fields accept values, the platform does not police them yet. Say so in the endpoint doc rather than implying enforcement.
+**Notes.** `size_bytes` and `mime_type` back WF 08's "1.2 MB" and type icon. `max_watch_limit` is stored on the recording but not enforced — there is no per-student view log.
 
 ### 5.8 Cohorts: groups, enrollment, assistants — R11, R12
 
@@ -307,7 +301,7 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | PATCH | `/assistants/{userId}` | "Edit" — replace the group set and the three flags in one call | `I` | `own-course` | 13 | ✅ |
 | POST | `/assistants/{userId}/revoke` | Set `is_revoked` on every row — access ends, `graded_by_user_id` attribution survives | `I` | `own-course` | 13 | ✅ |
 
-**Notes.** WF 13's two axes both land on `GROUP_ASSISTANTS`: *scope* is which rows exist, *permissions* are `can_take_attendance` / `can_grade` / `can_upload_solutions`, matching the three invite-time checkboxes exactly. "Attendance only" (Omar S.) is one row with one flag set.
+**Notes.** WF 13's two axes both land on `GROUP_ASSISTANTS`: *scope* is which rows exist (chosen at invite), *permissions* are `can_take_attendance` / `can_grade` / `can_upload_solutions`, set **once with Edit after the TA accepts**. "Attendance only" (Omar S.) is one row with one flag set. A newly accepted TA shows "Not set" until that Edit.
 
 **"All sections" is stored as N rows, not a wildcard** — so it does **not** auto-include groups created later (`GAP D10`). That is a deliberate reading, and the cheaper one; if the instructor expects a new section to inherit existing TA access, this needs a wildcard row or a course-level grant instead. Worth confirming before screen 13 is written.
 
@@ -320,21 +314,16 @@ Revocation is `is_revoked = true`, never a row delete, because `QUIZ_ANSWERS.gra
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/live-sessions` | **The timetable query.** Filters: `from`, `to`, `group_id`, `course_id`, `mode`, `status`. Mirrors index `LIVE_SESSIONS (group_id, scheduled_start)` | `I` `A` `S` `P` | role-shaped | 09, 06, 14, 19, 18 | ✅ |
-| POST | `/live-sessions` | "+ New Session" — online (`meeting_url`) or offline (`classroom_location`) | `I` | `own-course` | 09 | ⚠️ |
+| POST | `/live-sessions` | "+ New Session" — one-off, or a `recurrence` block that creates a `SESSION_SERIES` and materializes occurrences | `I` | `own-course` | 09 | ✅ |
 | GET | `/live-sessions/{sessionId}` | Session detail for the Class Session View | `I` `A` | `assigned-group` | 10, 16, 21 | ✅ |
-| PATCH | `/live-sessions/{sessionId}` | Edit time, room, mode, linked lesson | `I` | `own-course` | 09 | ⚠️ |
+| PATCH | `/live-sessions/{sessionId}` | Edit time, room, mode, linked lesson. Query `scope=this` (detach from series) or `scope=this_and_following` | `I` | `own-course` | 09 | ⚠️ |
 | POST | `/live-sessions/{sessionId}/cancel` | Set `status = CANCELLED` | `I` | `own-course` | — | ⚠️ |
-| GET | `/live-sessions/{sessionId}/join` | Returns the embed target plus whether the join window is open; drives WF 19's "Join Now vs countdown" | `S` | `own-enrollment` | 19, 21 | 🚫 `A15` |
-| POST | `/webhooks/meetings/{provider}` | Ingest a provider join log for auto-attendance | `—` | signature | 10, 21 | 🚫 `G15` |
+| GET | `/live-sessions/{sessionId}/join` | Returns the embed target plus whether the join window is open (`join_opens_minutes_before`) | `S` | `own-enrollment` | 19, 21 | ✅ |
+| POST | `/webhooks/meetings/{provider}` | Ingest a provider join log for auto-attendance (`external_meeting_id`) | `—` | signature | 10, 21 | ✅ |
 
-**Notes — the recurrence problem.** WF 09 promises weekly recurring sessions per section, and editing one occurrence prompts *"this session only"* vs *"this and following"*. `LIVE_SESSIONS` rows are independent and `GROUPS.schedule_info` is explicitly a free-text hint, not truth (`ERD:497-529`). This is `G10`, and it changes the entire session-write API:
+**Notes — recurrence.** Weekly sessions per section write a `SESSION_SERIES` parent and materialized `LIVE_SESSIONS` rows. `PATCH` takes `scope=this` (nulls `series_id` on that occurrence) or `scope=this_and_following` (updates this and later siblings by `scheduled_start`). `PATCH` stays ⚠️ on `GAP D14`: editing "this and following" when later occurrences already have attendance.
 
-- **Materialize-on-create** — `POST /live-sessions` with a `recurrence` block writes N rows. `PATCH` then needs a `scope=this|this_and_following` query parameter and a server-side sibling walk.
-- **`SESSION_SERIES` parent** — sessions carry a `series_id`; edits target the series or detach one occurrence.
-
-Neither is decidable from the current ERD. Both `POST` and `PATCH` stay ⚠️ until one is chosen, and `GAP D14` (editing "this and following" when later occurrences already have attendance) must be answered with it.
-
-`POST /live-sessions` also carries two CHECK constraints as `422`s: `mode=ONLINE ⇒ meeting_url` required, `mode=ONSITE ⇒ classroom_location` required, plus `scheduled_end > scheduled_start` (`ERD:384-397`). And the cross-branch invariant: if `lesson_id` is set, the lesson's course must equal the group's course (`ERD:398-407`).
+`POST /live-sessions` also carries two CHECK constraints as `422`s: `mode=ONLINE ⇒ meeting_url` required, `mode=ONSITE ⇒ classroom_location` required, plus `scheduled_end > scheduled_start`. And the cross-branch invariant: if `lesson_id` is set, the lesson's course must equal the group's course.
 
 `/cancel` is ⚠️ — the enum value exists but no screen offers the action, and whether a cancelled session leaves the attendance denominator is undecided (`GAP D15`, `E15`).
 
@@ -346,11 +335,11 @@ Neither is decidable from the current ERD. Both `POST` and `PATCH` stay ⚠️ u
 | PUT | `/live-sessions/{sessionId}/attendance` | **Bulk save.** Body is the full status array — this is both "Mark all present" and "Save Attendance" | `I` `A` | `assigned-group`+attendance | 10, 16 | ✅ |
 | PATCH | `/attendance/{attendanceId}` | Single-student override | `I` `A` | `assigned-group`+attendance | 10 | ✅ |
 | POST | `/live-sessions/{sessionId}/end` | "End Session & Save Attendance" — commits attendance, sets `status = COMPLETED`, **fires the parent-badge fan-out** | `I` `A` | `assigned-group`+attendance | 10 | ✅ |
-| POST | `/live-sessions/{sessionId}/attendance/self` | Auto-mark on join from the Live Class screen | `S` | `own-enrollment` | 21 | ⚠️ |
+| POST | `/live-sessions/{sessionId}/attendance/self` | Auto-mark on join from the Live Class screen | `S` | `own-enrollment` | 21 | ✅ |
 
 **Notes.** `GET .../attendance` is ⚠️ for a subtle reason worth writing into the doc: group membership is current-state only (`GAP E7`, `C14`). Re-opening a past session reconstructs its roster from *today's* membership, so a student who left the section disappears from a session they attended. The response should therefore be built from recorded `ATTENDANCE` rows **unioned with** current membership, not from membership alone.
 
-`POST .../attendance/self` is ⚠️: WF 21 says leaving early "can flag partial attendance", but `ATTENDANCE.status` is `PRESENT/ABSENT/LATE` with no `PARTIAL` and no join/leave timestamps (`G13`). It also collides with manual marking — which value wins, and who recorded it, is undecided and `ATTENDANCE` has no `recorded_by` column (`GAP D5`).
+`POST .../attendance/self` writes `PRESENT` with `joined_at` and `recorded_by_user_id` null (machine). Leaving early sets `left_at` and may flip status to `PARTIAL`. A later manual `PATCH` wins and stamps `recorded_by_user_id`.
 
 ### 5.11 Assignments — R15a ✅
 
@@ -359,9 +348,9 @@ Homework lives on the **curriculum branch**: an assignment hangs off a lesson, i
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/lessons/{lessonId}/assignments` | Homework attached to a lesson | `I` `A` `S` | `own-course` / `own-enrollment` | 08, 20 | ✅ |
-| POST | `/lessons/{lessonId}/assignments` | Create — title, description, `due_date`, optional instructions file | `I` | `own-course` | 08 | ⚠️ |
+| POST | `/lessons/{lessonId}/assignments` | Create — title, description, `due_date`, optional instructions file | `I` | `own-course` | 08 | ✅ |
 | GET | `/assignments/{assignmentId}` | Detail — the WF 23 header and deadline | `I` `A` `S` | scoped | 23 | ✅ |
-| PATCH | `/assignments/{assignmentId}` | Edit title, description, `due_date` | `I` | `own-course` | 08 | ⚠️ |
+| PATCH | `/assignments/{assignmentId}` | Edit title, description, `due_date` | `I` | `own-course` | 08 | ✅ |
 | DELETE | `/assignments/{assignmentId}` | **`409` once submissions exist** — student work is never silently destroyed | `I` | `own-course` | 08 | ✅ |
 | PUT | `/lessons/{lessonId}/assignments/order` | Bulk reorder within a lesson | `I` | `own-course` | 08 | ✅ |
 | PUT | `/assignments/{assignmentId}/solution` | Upload the solution file — this is WF 15's "+ Upload homework solutions" | `I` `A` | `own-course` / `assigned-group`+upload | 15 | ✅ |
@@ -370,7 +359,7 @@ Homework lives on the **curriculum branch**: an assignment hangs off a lesson, i
 | PUT | `/assignments/{assignmentId}/submissions/mine` | Re-submit — **overwrites in place**, per `UNIQUE (assignment_id, student_id)` | `S` | `self` | 23 | ⚠️ |
 | GET | `/assignments/{assignmentId}/submissions` | Who handed in, who was late, who is missing | `I` `A` | `own-course` / `assigned-group` | 11 | ✅ |
 
-**Notes.** The two `POST`/`PATCH` writes are ⚠️ on the deadline question (`ERD` Open Question 1): `due_date` is a single absolute timestamp on a cohort-independent row, so **every section shares it**. If Section A reaches Lesson 1.2 in week 2 and Section B in week 4, one deadline cannot serve both — and on-time-ness is the entire semantic of an assignment. The fix, if sections are ever out of step, is a `GROUP_ASSIGNMENTS (group_id, assignment_id, due_date)` junction; the ERD as written does not have one.
+**Notes.** `due_date` is shared by every section — **decided:** groups keep the same pace, so there is no `GROUP_ASSIGNMENTS` junction.
 
 `PUT .../submissions/mine` is ⚠️ because nothing locks it. WF 23 says re-submission is open "until the instructor grades it" — but there is no grading step for assignments any more, so the lock needs a new trigger. `solution_released_at` is the recommended one (`ERD` Open Question 3): once the answers are public, submission closes.
 
@@ -463,7 +452,7 @@ Everything here is computed on read (`GAP E11`).
 | GET | `/dashboards/instructor` | WF 06 — four stat cards, today's sessions, pending-grading count | `I` | `own-course` | 06 | 🚫 `C3` |
 | GET | `/dashboards/assistant` | WF 14 — assigned sections, pending count, today's sessions to cover | `A` | `assigned-group` | 14 | 🚫 `C15` |
 | GET | `/dashboards/student` | WF 19 — next session + join window, due-soon across courses, recent grades | `S` | `self` | 19 | ⚠️ |
-| GET | `/dashboards/parent` | WF 17 — child cards + activity feed | `P` | `linked-child` | 17 | ⚠️ `G2` fee badge |
+| GET | `/dashboards/parent` | WF 17 — child cards + activity feed | `P` | `linked-child` | 17 | ✅ |
 
 **Notes.** `GET /students` is ⚠️ on three counts: the `Section` column assumes one group per student, but `STUDENT_GROUPS` is many-to-many (`GAP C13`, `D4`); "Missing" homework is the *absence* of an `ASSIGNMENT_SUBMISSIONS` row past `due_date` — derivable now, though which assignments a given student is expected to have done still depends on OQ1 (`GAP C4`); and the attendance-% denominator is undefined until cancelled-session handling is settled (`GAP C16`, `D15`).
 
@@ -471,20 +460,20 @@ Everything here is computed on read (`GAP E11`).
 
 `GET /dashboards/assistant` is 🚫 because `GROUP_ASSISTANTS` assigns a TA to a *group*, not a session — "today's sessions to cover" implies a per-session assignment that does not exist (`GAP C15`).
 
-### 5.16 Fees & payments — R20 🚫 `G2`
+### 5.16 Fees & payments — R20 ✅
 
-No student-payment entity exists anywhere. `COURSES.fees` is one static decimal and `SUBSCRIPTIONS` is a *different money flow* — instructor → platform, not student → instructor. Every endpoint here is a proposal.
+Student → instructor money. Distinct from `SUBSCRIPTIONS` (instructor → platform). `COURSES.fees` seeds `ENROLLMENT_FEES.amount`. One fee row per student per group per monthly period; `PAYMENTS` clears it to `PAID`.
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
-| GET | `/fees/summary` | "This month", "Outstanding", "Paid on time 91%" | `I` | `own-course` | 12 | 🚫 |
-| GET | `/fees` | Per-student fee rows: student, section, plan, status | `I` | `own-course` | 12 | 🚫 |
-| POST | `/fees/{feeId}/remind` | "Send reminder" → notifies the linked parent | `I` | `own-course` | 12 | 🚫 |
-| GET | `/fees/{feeId}/receipt` | Receipt document | `I` `P` | scoped | 12, 18 | 🚫 |
-| GET | `/children/{studentId}/fees` | Parent-side fee tab | `P` | `linked-child` | 18 | 🚫 |
-| POST | `/payments` | Parent pays; clears the overdue badge in real time | `P` | `linked-child` | 18 | 🚫 |
+| GET | `/fees/summary` | "This month", "Outstanding", "Paid on time 91%" | `I` | `own-course` | 12 | ✅ |
+| GET | `/fees` | Per-student fee rows: student, section, plan, status | `I` | `own-course` | 12 | ✅ |
+| POST | `/fees/{feeId}/remind` | "Send reminder" → notifies the linked parent | `I` | `own-course` | 12 | ✅ |
+| GET | `/fees/{feeId}/receipt` | Receipt document | `I` `P` | scoped | 12, 18 | ✅ |
+| GET | `/children/{studentId}/fees` | Parent-side fee tab | `P` | `linked-child` | 18 | ✅ |
+| POST | `/payments` | Parent pays; clears the overdue badge in real time | `P` | `linked-child` | 18 | ✅ |
 
-**Notes.** Before any of this can be specified, `GAP D19` must be answered: WF 12 shows a per-student "Plan: Monthly" column while `COURSES.fees` is a single decimal — so are fees per course, per group, per month, or per student? The proposed shape is `ENROLLMENT_FEES` (student × group × period, status `PAID/DUE/OVERDUE`) plus `PAYMENTS`, kept strictly separate from `SUBSCRIPTIONS`.
+**Notes.** "Send reminder" fans out to every linked parent (`GAP D33` still open if the UI stays singular). Receipt is `PAYMENTS.receipt_url`.
 
 ### 5.17 Parent portal — R21 ✅
 
@@ -530,13 +519,13 @@ Students reach curriculum through enrollment, never by browsing courses — henc
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/me/courses` | Enrolled courses via `STUDENT_GROUPS` | `S` | `own-enrollment` | 19, 20 | ✅ |
-| GET | `/me/courses/{courseId}/lessons` | **Published lessons only**, grouped by chapter, with per-lesson progress | `S` | `own-enrollment` | 20 | 🚫 `G3`+`G8` |
+| GET | `/me/courses/{courseId}/lessons` | **Published lessons only**, grouped by chapter | `S` | `own-enrollment` | 20 | ✅ |
 | GET | `/me/assignments` | Homework due soon across all enrolled courses | `S` | `own-enrollment` | 19, 23 | ✅ |
 | GET | `/me/quizzes` | Quizzes open or opening soon, by `closes_at` | `S` | `own-enrollment` | 19, 22 | ✅ |
 | GET | `/me/grades` | Recent grades | `S` | `own-enrollment` | 19 | ✅ |
 | GET | `/me/schedule` | Next session + join state | `S` | `own-enrollment` | 19 | ⚠️ |
 
-**Notes.** `GET /me/courses/{courseId}/lessons` is doubly blocked: the published/draft filter needs `LESSONS.status` (`G3`) and the `Done` / `In progress` chip needs per-student progress data that does not exist (`G8`, `GAP C5`). It is also where `GAP D2` bites — whether a published material inside a draft lesson is visible.
+**Notes.** Published/draft is `LESSONS.status`. There is no per-student view log, so progress chips are not backed. A published material inside a draft lesson is **not** visible — publish gating is at the lesson (`GAP D2`).
 
 ---
 
@@ -547,30 +536,30 @@ The checklist for the per-page docs. Each row becomes one `## NN - Screen Name` 
 | # | Screen | Primary endpoints | Blockers |
 |---|---|---|---|
 | 01 | Login `s-login` | `POST /auth/login`, `POST /auth/refresh` | `E17` one-role routing |
-| 02 | Instructor sign-up `s-signup` | `POST /auth/register`, `GET /plans`, `POST /subscriptions` | `A21`, `G16`, `D20` |
-| 03 | Forgot password `s-forgot` | `POST /auth/password/forgot`, `.../reset` | `G5` |
+| 02 | Instructor sign-up `s-signup` | `POST /auth/register`, `GET /plans`, `POST /subscriptions` | — |
+| 03 | Forgot password `s-forgot` | `POST /auth/password/forgot`, `POST /auth/password/reset` | — OTP in cache |
 | 04 | TA invite `s-tainvite` | `GET /invite-tokens/{token}`, `POST /invite-tokens/{token}/accept` | `D39` |
-| 05 | Parent/student invite `s-familyinvite` | same, role-shaped; student-issued parent invites use `POST /invites` | `D39`, `D40` |
-| 06 | Instructor dashboard `s-idash` | `GET /dashboards/instructor`, `GET /live-sessions?from=today`, `GET /grading/queue` | `C3`, `D18` |
-| 07 | Curriculum builder `s-curriculum` | `GET /courses/{id}/tree`, chapter + lesson CRUD, both `PUT .../order`, publish/unpublish | `G3` — **`DEMO` written** |
-| 08 | Content & assessment hub `s-content` | materials, recordings, `POST /lessons/{id}/assignments`, `POST /groups/{id}/quizzes`, questions | `G7`, `D1` (quizzes only), OQ1 |
-| 09 | Scheduling `s-calendar` | `GET/POST/PATCH /live-sessions` | `G10` recurrence, `G15` |
-| 10 | Class session view `s-session` | `GET /live-sessions/{id}`, `PUT .../attendance`, `POST .../end` | `C14`, `D5` |
+| 05 | Parent/student invite `s-familyinvite` | same, role-shaped; student-issued parent invites use `POST /invites` | `D39` |
+| 06 | Instructor dashboard `s-idash` | `GET /dashboards/instructor`, `GET /live-sessions?from=today`, `GET /grading/queue` | `C3` |
+| 07 | Curriculum builder `s-curriculum` | `GET /courses/{id}/tree`, chapter + lesson CRUD, both `PUT .../order`, publish/unpublish | — |
+| 08 | Content & assessment hub `s-content` | materials, recordings, `POST /lessons/{id}/assignments`, `POST /groups/{id}/quizzes`, questions | `D1` (quizzes only) |
+| 09 | Scheduling `s-calendar` | `GET/POST/PATCH /live-sessions` | `D14` this-and-following with attendance |
+| 10 | Class session view `s-session` | `GET /live-sessions/{id}`, `PUT .../attendance`, `POST .../end` | `C14` |
 | 11 | Roster & performance `s-roster` | `GET /students`, `GET /students/{id}` | `C4`, `C13`, `C16`, `D33` |
-| 12 | Fees & revenue `s-fees` | `GET /fees/summary`, `GET /fees`, `POST /fees/{id}/remind` | `G2`, `D19` |
+| 12 | Fees & revenue `s-fees` | `GET /fees/summary`, `GET /fees`, `POST /fees/{id}/remind` | `D33` which parent |
 | 13 | Instructor settings `s-isettings` | `GET/PATCH /me/profile`, `GET/PATCH /assistants`, `POST /assistants/{id}/revoke`, `POST`/`GET`/`DELETE /invites`, `GET /me/subscription` | `D10` |
 | 14 | TA dashboard `s-tadash` | `GET /dashboards/assistant`, `GET /grading/summary` | `C15` |
 | 15 | Grading queue `s-grading` | `GET /grading/queue`, `PATCH /answers/{id}/grade`, `PATCH /grading/answers`, `POST /attempts/{id}/finalize`, `PUT /assignments/{id}/solution` | `D9` regrade, finalize policy |
 | 16 | Attendance taking `s-attendance` | `GET`/`PUT /live-sessions/{id}/attendance` | `D25` |
-| 17 | Parent home `s-phome` | `GET /me/children`, `GET /notifications` | `A23`, `G2` fee badge |
-| 18 | Child detail `s-pchild` | `GET /children/{id}` + four tabs, `POST /payments` | `G2` (fees tab only) |
-| 19 | Student dashboard `s-shome` | `GET /dashboards/student`, `GET /me/assignments`, `GET /me/quizzes` | `A15` join window, OQ2 homework grade |
-| 20 | Lesson & materials `s-lesson` | `GET /me/courses/{id}/lessons`, `GET /materials/{id}/content`, `POST .../views` | `G3`, `G7`, `G8` |
-| 21 | Live class `s-liveclass` | `GET /live-sessions/{id}/join`, `POST .../attendance/self` | `G13`, `G15`, `A15` |
+| 17 | Parent home `s-phome` | `GET /me/children`, `GET /notifications` | — |
+| 18 | Child detail `s-pchild` | `GET /children/{id}` + four tabs, `POST /payments` | — |
+| 19 | Student dashboard `s-shome` | `GET /dashboards/student`, `GET /me/assignments`, `GET /me/quizzes` | OQ2 homework grade |
+| 20 | Lesson & materials `s-lesson` | `GET /me/courses/{id}/lessons`, `GET /materials/{id}/content` | — |
+| 21 | Live class `s-liveclass` | `GET /live-sessions/{id}/join`, `POST .../attendance/self` | — |
 | 22 | Quiz taking `s-quiz` | `POST /quizzes/{id}/attempts`, `PATCH /attempts/{id}/answers`, `POST .../submit` | `D17` expiry policy |
-| 23 | Homework submission `s-homework` | `POST /assignments/{id}/submissions`, `PUT .../submissions/mine` | OQ1 deadline, OQ3 lock |
+| 23 | Homework submission `s-homework` | `POST /assignments/{id}/submissions`, `PUT .../submissions/mine` | OQ3 lock |
 
-**Coverage.** With `G1`, `G4`, `G6` and the assignment/quiz split landed, 22 of 23 screens can be documented today at least in part. Only **03** (`G5`, password-reset tokens) and **12** (`G2`, fees) are blocked end-to-end — plus the read half of **20** (`G3`+`G8`) and the "sessions to cover" tile on **14** (`C15`). Screens **04**, **05** and **13** join the specifiable set; **15** and **16** are complete including TA authorization.
+**Coverage.** Entity gaps G1–G16 that blocked endpoints are closed except behavioural leftovers (`C3` dashboard labels, `C15` per-session TA cover, `D14`, `D17`, OQ2, OQ3). Screen **14**'s "sessions to cover" tile is still 🚫.
 
 ---
 
@@ -585,16 +574,16 @@ Ordered by how many endpoints each gap unblocks.
 | ~~`G11`+`G12`~~ | ✅ **Resolved** — `ASSIGNMENT_SUBMISSIONS.is_late` boolean; re-submit overwrites in place | Screen 23 | 2 unblocked |
 | ~~`A19`+`A20`~~ | ✅ **Resolved** — `ASSIGNMENTS.solution_file_url`, `ASSIGNMENT_SUBMISSIONS.student_note` | Screens 15, 23 | 2 unblocked |
 | ~~`G4`~~ | ✅ **Resolved** — `INVITES` + `INVITE_GROUPS`, issuer on `USERS` so students can invite parents | Screens 04, 05, 13 | 5 unblocked |
-| ~~`G6`~~ | ✅ **Resolved** — `can_take_attendance` / `can_grade` / `can_upload_solutions` + `is_revoked` on `GROUP_ASSISTANTS` | Screens 04, 13, 14, 15, 16 — and **every `A`-role check in this document** | 4 + all TA authorization |
-| **OQ1** | Per-group assignment deadline (`GROUP_ASSIGNMENTS`) — **only if sections are ever out of step** | Screens 08, 23 | 4 at risk |
-| `G2` | `ENROLLMENT_FEES` + `PAYMENTS` | Screens 12, 18 | 6 |
-| `G3` | `LESSONS.status DRAFT/PUBLISHED` | Screens 07, 20 | 3 |
-| `G8` | `MATERIAL_VIEWS` / `RECORDED_SESSION_VIEWS` | Screens 11, 20 | 3 |
-| `G10` | Recurrence model | Screen 09 — **changes the session-write API shape** | 2, shape-defining |
-| `G7` | `MATERIALS.access_mode` (+ `size`, `mime_type` for `A9`) | Screen 08, 20 | 3 |
-| `G5` | `PASSWORD_RESET_TOKENS` | Screen 03 | 2 |
-| `G13` | `PARTIAL` attendance or join/leave timestamps | Screen 21 | 1 |
-| `G15` | Meeting provider + external id + webhook | Screens 10, 21 | 1 |
+| ~~`G6`~~ | ✅ **Resolved** — `can_take_attendance` / `can_grade` / `can_upload_solutions` + `is_revoked` on `GROUP_ASSISTANTS`. Flags are granted after invite acceptance, not copied from `INVITE_GROUPS` | Screens 04, 13, 14, 15, 16 — and **every `A`-role check in this document** | 4 + all TA authorization |
+| **OQ1** | ~~Per-group assignment deadline~~ **Decided: shared `due_date`.** Sections keep the same pace; no `GROUP_ASSIGNMENTS` | Screens 08, 23 | — |
+| ~~`G2`~~ | ✅ `ENROLLMENT_FEES` + `PAYMENTS` | Screens 12, 18 | 6 unblocked |
+| ~~`G3`~~ | ✅ `LESSONS.status DRAFT/PUBLISHED` | Screens 07, 20 | 3 unblocked |
+| `G8` | **Dropped.** No `MATERIAL_VIEWS` / `RECORDED_SESSION_VIEWS`. Roster "viewed" and watch-limit enforcement are out of schema | Screens 11, 20 | — |
+| ~~`G10`~~ | ✅ `SESSION_SERIES` parent; occurrences materialized; `PATCH ?scope=` | Screen 09 | 2 unblocked |
+| ~~`G7`~~ | ✅ `MATERIALS.access_mode`, `size_bytes`, `mime_type` | Screen 08, 20 | 3 unblocked |
+| ~~`G5`~~ | ✅ **Resolved** — password-reset OTP in **cache**, not a table | Screen 03 | 2 unblocked |
+| ~~`G13`~~ | ✅ `PARTIAL` + `joined_at` / `left_at` / `recorded_by_user_id` | Screen 21 | 1 unblocked |
+| ~~`G15`~~ | ✅ `meeting_provider` + `external_meeting_id` + webhook | Screens 10, 21 | 1 unblocked |
 | `G16` | Curriculum enum | Screen 02 | 0 — field only |
 
 `G6` was the one that mattered most: every row in this document with an `A` in the Roles column was asserting a permission that had nowhere to live. With the three flags on `GROUP_ASSISTANTS`, `assigned-group` is now a check the service layer can actually run.
@@ -658,7 +647,9 @@ Codes the per-page docs reference instead of restating rules.
 | Code | HTTP | Note |
 |---|---|---|
 | `INVALID_CREDENTIALS` | `401` | Never distinguishes unknown email from wrong password |
-| `TOKEN_EXPIRED` | `401` | Invite and reset links |
+| `TOKEN_EXPIRED` | `401` | Invite links |
+| `INVALID_OTP` | `401` | Wrong reset code, or no matching account — never distinguished |
+| `OTP_EXPIRED` | `410` | Reset code expired, already used, or locked after too many attempts |
 | `INSUFFICIENT_SCOPE` | `403` | Right role, wrong ownership or missing permission flag — a TA outside assigned groups, or one without `can_grade` hitting the queue |
 
 `POST /auth/password/forgot` returns `202` unconditionally and raises nothing — leaking account existence is the failure mode (WF 03).
@@ -688,10 +679,10 @@ Each per-page doc follows `DEMO`'s structure: `## NN - Screen Name`, then one `#
 07 (extend `DEMO` to the full set: reorder, publish, tree), 10, 11 (partial), 15, 16, 22, 19 (minus the homework grade), 06 (minus stat cards), 17 and 18 (minus fees).
 
 **Wave 2 — one decision each, then specifiable**
-08 (needs `G7`, `D1` for quizzes, OQ1 for assignments), 09 (needs `G10` — decide before writing, it changes the shape), 20 (needs `G3`, `G8`), 22 (needs `D17` expiry policy), 23 (needs OQ1 and OQ3).
+08 (quiz group pick `D1`), 09 (`D14` this-and-following with attendance), 22 (`D17` expiry), 23 (OQ3 lock).
 
-**Wave 3 — blocked on new entities**
-03 (`G5`), 12 (`G2`), 14 (`C15`), 21 (`G13`, `G15`).
+**Wave 3 — remaining non-entity gaps**
+06 (`C3` unnamed stat cards), 14 (`C15` per-session TA cover).
 
 **Moved up by the `G4` resolution:** 04, 05 and 13 join Wave 2 — each needs one invite decision (`D39` email match, `D40` rescind authority) but nothing structural.
 
@@ -699,6 +690,6 @@ Each per-page doc follows `DEMO`'s structure: `## NN - Screen Name`, then one `#
 
 **Before Wave 1 starts, four decisions cost nothing and unblock disproportionately:** confirm section == group (`GAP E1`), confirm term folds into course (`G14`), confirm one group per course per student (`GAP E5`), and name the four dashboard stat cards (`C3`). None require schema work.
 
-**One decision now costs nothing and prevents rework:** OQ1. If two sections of the same course will ever be out of step on the syllabus — and with Section A, Section B and Revision in the wireframes, they will — the `GROUP_ASSIGNMENTS` junction should land before screen 08 and 23 are written, not after.
+**One decision now costs nothing and prevents rework:** none on OQ1 — shared deadline is decided.
 
 **Also note for the implementation pass:** `prisma/schema.prisma` currently holds a placeholder `User` model with `Role { STUDENT, INSTRUCTOR, ADMIN }`, which conflicts with the ERD's `TEACHER, STUDENT, ASSISTANT, ADMIN`. The ERD wins; the schema is rewritten from it.

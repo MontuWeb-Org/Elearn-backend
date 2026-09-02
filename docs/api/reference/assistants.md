@@ -3,7 +3,7 @@
 Teaching assistants hold delegated, scoped access. Two independent axes control what a TA can do, and both live on `GROUP_ASSISTANTS`:
 
 - **Scope** — which groups. One row per group; "All sections" is N rows, not a wildcard, so a TA does *not* automatically inherit access to sections created later.
-- **Permissions** — three booleans matching the invite-time checkboxes exactly: `can_take_attendance`, `can_grade`, `can_upload_solutions`.
+- **Permissions** — three booleans on `GROUP_ASSISTANTS`, granted once with Edit after the TA accepts: `can_take_attendance`, `can_grade`, `can_upload_solutions`. They are not collected on the invite.
 
 **Revoking a TA is never a row delete.** Grading history points at the user, so revocation sets `is_revoked` — access ends immediately while every grade they gave keeps its attribution.
 

@@ -74,10 +74,11 @@ paths:
       - Authentication
       operationId: login
       summary: Log in
-      description: "Exchanges credentials for an access token and a refresh token. The response carries\
-        \ the caller's roles and a `routing_target`, because one login serves all four tiers and the server\
-        \ decides where the client lands (WF 01).\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:**\
-        \ 01\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: "Exchanges credentials for an access token and a refresh token. Creates a `USER_SESSIONS`\
+        \ row. `remember_me` sets refresh lifetime to 30 days; otherwise 7 days. Access JWT is always\
+        \ 15 minutes (`expires_in` = 900).\n\nWrong email and wrong password both return `401 INVALID_CREDENTIALS`.\
+        \ A correct password on an inactive account returns `403 ACCOUNT_DISABLED`.\n\n**Roles:** —  \n\
+        **Ownership scope:** —  \n**Wireframe:** 01\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       security: []
       requestBody:
         required: true
@@ -96,6 +97,8 @@ paths:
           $ref: '#/components/responses/400'
         '401':
           $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
   /auth/refresh:
     post:
       tags:
@@ -103,8 +106,9 @@ paths:
       operationId: refreshToken
       summary: Rotate refresh token
       description: "Exchanges a refresh token for a new pair. The old token is revoked on use — rotation\
-        \ is backed by `USER_SESSIONS.refresh_token_hash`.\n\n**Roles:** —  \n**Ownership scope:** — \
-        \ \n**Wireframe:** —\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+        \ writes a new `USER_SESSIONS.refresh_token_hash`. A rotated, expired, or unknown refresh token\
+        \ is `401 INVALID_CREDENTIALS`.\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** —\n\
+        \n**Status:** ✅ Specifiable — fully backed by the ERD."
       security: []
       requestBody:
         required: true
@@ -127,16 +131,14 @@ paths:
       - Authentication
       operationId: logout
       summary: Log out
-      description: "Revokes the current session by setting `USER_SESSIONS.is_revoked`.\n\n**Roles:** all\
-        \  \n**Ownership scope:** self  \n**Wireframe:** —\n\n**Status:** ✅ Specifiable — fully backed\
-        \ by the ERD."
+      description: "Revokes the current session by setting `USER_SESSIONS.is_revoked` on the `sid` in the\
+        \ access token.\n\n**Roles:** all  \n**Ownership scope:** self  \n**Wireframe:** —\n\n**Status:**\
+        \ ✅ Specifiable — fully backed by the ERD."
       responses:
         '204':
           description: No content
         '401':
           $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
   /auth/me:
     get:
       tags:
@@ -164,11 +166,9 @@ paths:
       summary: Register as instructor
       description: "Step 1 of 3 of instructor sign-up. Creates the `USERS` row, the `TEACHERS` profile\
         \ and the `TEACHER` role assignment. Only instructors may self-register; every other account arrives\
-        \ by invite.\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** 02\n\n**Status:** ⚠️\
-        \ WF 02 captures a single `full_name`, plural `subjects_taught` and a curriculum choice (IGCSE\
-        \ / American Diploma / Both). `USERS` splits `first_name`/`last_name`, `TEACHERS.specialization`\
-        \ is one string, and no curriculum field exists anywhere (gaps A21, G16). The three fields below\
-        \ are documented against the wireframe and await a schema change."
+        \ by invite. Duplicate email is `409 EMAIL_TAKEN`. Returns `201` and an `AuthSession` so the client\
+        \ can continue to plan selection (step 2).\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:**\
+        \ 02\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       security: []
       requestBody:
         required: true
@@ -177,8 +177,8 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
-        '200':
-          description: Success
+        '201':
+          description: Created and signed in
           content:
             application/json:
               schema:
@@ -193,10 +193,11 @@ paths:
       - Authentication
       operationId: forgotPassword
       summary: Request a password reset
-      description: "Sends a reset link. **Always returns 202**, whether or not the address matches an\
-        \ account — leaking account existence is the failure mode here (WF 03).\n\n**Roles:** —  \n**Ownership\
-        \ scope:** —  \n**Wireframe:** 03\n\n**Status:** \U0001F6AB Blocked — no `PASSWORD_RESET_TOKENS`\
-        \ entity exists (G5). The shape below is proposed, not final."
+      description: "Emails a 6-digit OTP. **Always returns 202**, whether or not the address matches an\
+        \ account — leaking account existence is the failure mode here (WF 03). A new request replaces\
+        \ any live OTP for that user (new hash, new expiry, attempt count reset).\n\n**Roles:** —  \n\
+        **Ownership scope:** —  \n**Wireframe:** 03\n\n**Status:** \u2705 Specifiable — fully backed by\
+        \ the ERD. The OTP is stored in cache, not a table."
       security: []
       requestBody:
         required: true
@@ -217,9 +218,11 @@ paths:
       - Authentication
       operationId: resetPassword
       summary: Reset a password
-      description: "Consumes a reset token and sets a new password. Expired links offer a resend (WF 03).\n\
-        \n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** 03\n\n**Status:** \U0001F6AB Blocked\
-        \ — no `PASSWORD_RESET_TOKENS` entity exists (G5). The shape below is proposed, not final."
+      description: "Consumes the emailed OTP and sets a new password. Body is `email` + `otp` + `password`\
+        \ — there is no reset token. A wrong code and an unknown email both return `401 INVALID_OTP`.\
+        \ An expired, already-used, or locked code returns `410 OTP_EXPIRED` and the screen offers to\
+        \ resend (WF 03).\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** 03\n\n**Status:**\
+        \ \u2705 Specifiable — fully backed by the ERD. The OTP is stored in cache, not a table."
       security: []
       requestBody:
         required: true
@@ -232,15 +235,19 @@ paths:
           description: No content
         '400':
           $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '410':
+          $ref: '#/components/responses/410'
   /me/profile:
     get:
       tags:
       - Authentication
       operationId: getProfile
       summary: Get own profile
-      description: "Profile tab on WF 13 (instructor) and WF 19 (student).\n\n**Roles:** all  \n**Ownership\
-        \ scope:** self  \n**Wireframe:** 13, 19\n\n**Status:** ⚠️ No avatar or display-name field exists\
-        \ on `USERS` (gap A25), and no student-editable profile fields are defined (A26)."
+      description: "Profile tab on WF 13 (instructor) and WF 19 (student). Role-specific fields are null\
+        \ when they do not apply (`curriculum` for a student, `phone` for an instructor, etc).\n\n**Roles:**\
+        \ all  \n**Ownership scope:** self  \n**Wireframe:** 13, 19\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       responses:
         '200':
           description: Success
@@ -257,8 +264,10 @@ paths:
       - Authentication
       operationId: updateProfile
       summary: Update own profile
-      description: "Partial update. Only fields present in the body are changed.\n\n**Roles:** all  \n\
-        **Ownership scope:** self  \n**Wireframe:** 13, 19\n\n**Status:** ⚠️ See `GET /me/profile`."
+      description: "Partial update. Only fields present in the body are changed. Fields this role cannot\
+        \ write return `422 FIELD_NOT_ALLOWED` (see Authentication implementation contract). Email is not\
+        \ editable.\n\n**Roles:** all  \n**Ownership scope:** self  \n**Wireframe:** 13, 19\n\n**Status:**\
+        \ ✅ Specifiable — fully backed by the ERD."
       requestBody:
         required: true
         content:
@@ -276,18 +285,17 @@ paths:
           $ref: '#/components/responses/400'
         '401':
           $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
+        '422':
+          $ref: '#/components/responses/422'
   /me/sessions:
     get:
       tags:
       - Authentication
       operationId: listSessions
       summary: List active devices
-      description: "Active refresh-token sessions with user agent and IP.\n\n**Roles:** all  \n**Ownership\
-        \ scope:** self  \n**Wireframe:** —\n\n**Status:** ⚠️ `USER_SESSIONS` stores `user_agent`, `ip_address`,\
-        \ `is_revoked` and `expires_at`, but no screen lists or revokes sessions (gap B3). Documented\
-        \ because the data exists."
+      description: "Active refresh-token sessions. `is_current` is true for the `sid` in the caller's access\
+        \ token. No wireframe lists devices; the data exists and the endpoint is part of auth.\n\n**Roles:**\
+        \ all  \n**Ownership scope:** self  \n**Wireframe:** —\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - &id001
         name: limit
@@ -329,8 +337,9 @@ paths:
       - Authentication
       operationId: revokeSession
       summary: Revoke a device
-      description: "Sets `is_revoked` on one session.\n\n**Roles:** all  \n**Ownership scope:** self \
-        \ \n**Wireframe:** —\n\n**Status:** ⚠️ See `GET /me/sessions`."
+      description: "Sets `is_revoked` on one of the caller's sessions. Revoking the current session is\
+        \ allowed and signs the caller out.\n\n**Roles:** all  \n**Ownership scope:** self  \n**Wireframe:**\
+        \ —\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - name: sessionId
         in: path
@@ -354,19 +363,13 @@ paths:
       - Invites
       operationId: createInvite
       summary: Issue an invite
-      description: "Issues an invite for a teaching assistant, student or parent.\n\n**The issuer may\
-        \ be an instructor or a student.** `INVITES.issued_by_user_id` references `USERS`, not `TEACHERS`,\
-        \ because a student may invite their own parent — WF 05 allows the instructor to invite parent\
-        \ and student together, *or* the student to add a parent later from their own settings. A student\
-        \ may issue only a `PARENT` invite, and only with `linked_student_id` set to themselves.\n\nScope\
-        \ is role-shaped and is stored as `INVITE_GROUPS` rows mirroring `GROUP_ASSISTANTS`:\n\n- `ASSISTANT`\
-        \ — the groups, plus `can_take_attendance` / `can_grade` / `can_upload_solutions`\n- `STUDENT`\
-        \ — the groups to enroll into; the permission flags are ignored\n- `PARENT` — no groups; `linked_student_id`\
-        \ names the child\n\nEvery scoped group must belong to a course the issuing instructor owns.\n\
-        \n**Roles:** I, S  \n**Ownership scope:** own-course / self  \n**Wireframe:** WF 13, WF 05\n\n\
-        **Status:** ⚠️ A partial unique index allows only one live invite per `(email, role, issuer)`.\
-        \ Whether re-inviting the same address updates that invite or returns `409` is undecided; the\
-        \ index assumes update."
+      description: "Issues an invite. Sends the email as a side effect; the raw token is never in the JSON.\n\
+        \n**Upsert.** A second `POST` for the same live `(email, role, issuer)` rotates the token, replaces\
+        \ name/groups/expiry, and returns **200**. A new row returns **201**.\n\nA student may issue only\
+        \ `PARENT`, with `linked_student_id` equal to themselves. Instructors may issue `ASSISTANT`, `STUDENT`,\
+        \ or `PARENT`. Every `group_id` must belong to a course the issuing instructor owns.\n\n**Roles:**\
+        \ I, S  \n**Ownership scope:** own-course / self  \n**Wireframe:** WF 13, WF 05\n\n**Status:**\
+        \ ✅ Specifiable — fully backed by the ERD."
       requestBody:
         required: true
         content:
@@ -374,20 +377,26 @@ paths:
             schema:
               $ref: '#/components/schemas/InviteCreate'
       responses:
+        '200':
+          description: Live invite updated (resend)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
         '201':
-          description: Success
+          description: Invite created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Invite'
         '400':
           $ref: '#/components/responses/400'
-        '409':
-          $ref: '#/components/responses/409'
         '401':
           $ref: '#/components/responses/401'
         '403':
           $ref: '#/components/responses/403'
+        '422':
+          $ref: '#/components/responses/422'
     get:
       tags:
       - Invites
@@ -402,7 +411,7 @@ paths:
         required: false
         description: Filter by invited role.
         schema:
-          $ref: '#/components/schemas/RoleName'
+          $ref: '#/components/schemas/InviteRole'
       - *id001
       - *id002
       responses:
@@ -429,12 +438,11 @@ paths:
       - Invites
       operationId: revokeInvite
       summary: Rescind an invite
-      description: "Rescinds a pending invite by stamping `revoked_at`. **The row is not deleted** — it\
-        \ stays as an audit record, and the token stops working immediately.\n\n**Roles:** I, S  \n**Ownership\
-        \ scope:** own-course / self  \n**Wireframe:** WF 13\n\n**Status:** ⚠️ Who may rescind a *student-issued*\
-        \ parent invite — the student, the instructor who owns the classroom, or both — is undecided (gap\
-        \ D40). `revoked_at` records that it happened, not who did it; add `revoked_by_user_id` if that\
-        \ distinction matters."
+      description: "Rescinds a pending invite by stamping `revoked_at` and `revoked_by_user_id`. **The\
+        \ row is not deleted.** Allowed actors: the issuer; for a student-issued parent invite, also any\
+        \ instructor who owns a course that child is enrolled in.\n\nAlready accepted or already rescinded\
+        \ is `409 INVITE_NOT_PENDING`.\n\n**Roles:** I, S  \n**Ownership scope:** own-course / self  \n\
+        **Wireframe:** WF 13\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - name: inviteId
         in: path
@@ -446,12 +454,14 @@ paths:
       responses:
         '204':
           description: No content
-        '404':
-          $ref: '#/components/responses/404'
         '401':
           $ref: '#/components/responses/401'
         '403':
           $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
   /invite-tokens/{token}:
     get:
       tags:
@@ -460,12 +470,13 @@ paths:
       summary: Preview an invite
       description: "**Public.** Returns the inviter's name, the offered role, and the scope rendered as\
         \ prose.\n\nThis is what WF 04 shows a teaching assistant before they activate: *\"Mr. Ahmed invited\
-        \ you as a Teaching Assistant — you'll have access to: attendance, grading, and homework uploads\
-        \ for his classes.\"* The name comes from joining the invite to its issuing user; the sentence\
-        \ is built from the `INVITE_GROUPS` rows and their flags.\n\nA token that is spent, rescinded\
+        \ you as a Teaching Assistant — you'll have access to his classes. He'll set what you can do after\
+        \ you activate.\"* The name comes from joining the invite to its issuing user; the sentence is\
+        \ built from the `INVITE_GROUPS` group names, not from permission flags.\n\nA token that is spent, rescinded\
         \ or expired returns `410`, never `404` — the recipient followed a real link and should be told\
-        \ it is no longer valid rather than that it never existed.\n\n**Roles:** —  \n**Ownership scope:**\
-        \ —  \n**Wireframe:** WF 04, WF 05\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+        \ it is no longer valid rather than that it never existed. Code `INVITE_INVALID`. Unknown tokens\
+        \ are also `410`, not `404`.\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** WF 04,\
+        \ WF 05\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       security: []
       parameters:
       - name: token
@@ -481,8 +492,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InvitePreview'
-        '404':
-          $ref: '#/components/responses/404'
         '410':
           $ref: '#/components/responses/410'
   /invite-tokens/{token}/accept:
@@ -491,19 +500,14 @@ paths:
       - Invites
       operationId: acceptInvite
       summary: Accept an invite
-      description: "Consumes the invite and materializes everything it promised, in one transaction:\n\
-        \n| Role | Acceptance writes |\n|---|---|\n| `ASSISTANT` | One `GROUP_ASSISTANTS` row per scoped\
-        \ group, flags copied verbatim |\n| `STUDENT` | One `STUDENT_GROUPS` row per scoped group |\n\
-        | `PARENT` | One `PARENT_STUDENTS` row against `linked_student_id` |\n\n**The address may already\
-        \ have an account.** A parent already linked to a child under a different instructor accepts by\
-        \ *attaching* — a new link row on the existing user — not by creating a second account. `accepted_user_id`\
-        \ records which account the invite resolved to either way. This is what makes one parent account\
-        \ spanning multiple instructors work.\n\nReturns tokens and the routing target, so the client\
-        \ lands on the right home screen: a TA on their dashboard already scoped to the assigned sections,\
-        \ a student on theirs, a parent on parent home.\n\n**Roles:** —  \n**Ownership scope:** —  \n\
-        **Wireframe:** WF 04, WF 05\n\n**Status:** ⚠️ Whether the token alone suffices, or the accepting\
-        \ address must match `INVITES.email`, is undecided (gap D39). Token-only is standard and means\
-        \ a forwarded invite still works."
+      description: "Consumes the invite in one transaction. The token alone identifies it — the body has\
+        \ no email (WF 04/05 never collect one).\n\n| Role | Writes |\n|---|---|\n| `ASSISTANT` | `GROUP_ASSISTANTS`\
+        \ per group, flags all false |\n| `STUDENT` | `STUDENT_GROUPS` plus a `STUDENTS` row if new |\n\
+        | `PARENT` | `PARENT_STUDENTS` plus a `PARENTS` row if new |\n\n`password` is always required.\
+        \ Unknown email creates the account. Known email verifies the password (`401 INVALID_CREDENTIALS`\
+        \ if wrong) and attaches. A `TEACHER` account cannot accept: `409 INSTRUCTOR_CANNOT_ACCEPT_INVITE`.\
+        \ Empty scope after archived groups: `410 INVITE_INVALID`.\n\n**Roles:** —  \n**Ownership scope:**\
+        \ —  \n**Wireframe:** WF 04, WF 05\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       security: []
       parameters:
       - name: token
@@ -527,6 +531,10 @@ paths:
                 $ref: '#/components/schemas/AuthSession'
         '400':
           $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '409':
+          $ref: '#/components/responses/409'
         '410':
           $ref: '#/components/responses/410'
   /plans:
@@ -536,8 +544,7 @@ paths:
       operationId: listPlans
       summary: List subscription plans
       description: "Plan tiers for sign-up step 2.\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:**\
-        \ 02\n\n**Status:** ⚠️ WF 02 sizes the plan on student count **and TA seats**, but `SUBSCRIPTION_PLANS`\
-        \ has only `max_students` — whether TAs consume seats is undecided (gap D20)."
+        \ 02\n\n**Status:** ✅ Specifiable — `max_students` and `max_ta_seats` size the plan (WF 02)."
       security: []
       responses:
         '200':
@@ -1336,27 +1343,6 @@ paths:
           $ref: '#/components/responses/401'
         '403':
           $ref: '#/components/responses/403'
-  /materials/{materialId}/views:
-    post:
-      tags:
-      - Materials
-      operationId: logMaterialView
-      summary: Log a material view
-      description: "Records that the student opened the file. WF 20 promises this \"viewed\" state is\
-        \ visible to the instructor on the roster (WF 11).\n\n**Roles:** S  \n**Ownership scope:** own-enrollment\
-        \  \n**Wireframe:** 20\n\n**Status:** \U0001F6AB Blocked — no `MATERIAL_VIEWS` table exists (G8).\
-        \ The ERD names it as the natural extension. The shape below is proposed, not final."
-      parameters:
-      - *id006
-      responses:
-        '204':
-          description: No content
-        '404':
-          $ref: '#/components/responses/404'
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
   /lessons/{lessonId}/recordings:
     get:
       tags:
@@ -1510,26 +1496,6 @@ paths:
           $ref: '#/components/responses/400'
         '409':
           $ref: '#/components/responses/409'
-        '401':
-          $ref: '#/components/responses/401'
-        '403':
-          $ref: '#/components/responses/403'
-  /recordings/{recordingId}/views:
-    post:
-      tags:
-      - Recordings
-      operationId: logRecordingView
-      summary: Log a recording view
-      description: "Increments the student's watch count — the basis for enforcing `max_watch_limit`.\n\
-        \n**Roles:** S  \n**Ownership scope:** own-enrollment  \n**Wireframe:** 20\n\n**Status:** \U0001F6AB\
-        \ Blocked — no `RECORDED_SESSION_VIEWS` table exists (G8). The shape below is proposed, not final."
-      parameters:
-      - *id007
-      responses:
-        '204':
-          description: No content
-        '404':
-          $ref: '#/components/responses/404'
         '401':
           $ref: '#/components/responses/401'
         '403':
@@ -2175,8 +2141,8 @@ paths:
       summary: List teaching assistants
       description: "The WF 13 team table: each TA with their scope and permissions.\n\n**Scope** is which\
         \ groups the TA has rows for; \"All sections\" is stored as N rows, not a wildcard. **Permissions**\
-        \ are the three booleans matching the invite-time checkboxes exactly: `can_take_attendance`, `can_grade`,\
-        \ `can_upload_solutions`.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:**\
+        \ are the three booleans, granted once with Edit after the TA accepts: `can_take_attendance`, `can_grade`,\
+        \ `can_upload_solutions`. A newly accepted TA shows all flags false until that Edit.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:**\
         \ 13\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - name: include_revoked
@@ -4513,7 +4479,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token from `POST /auth/login` or `POST /auth/refresh`.
+      description: "Access JWT from login, register, refresh, or invite-accept. Claims are sub (user id), sid (USER_SESSIONS.user_session_id), roles, typ=access, iat, exp. Every request loads the session by sid and rejects it if revoked or expired."
   schemas:
     Empty:
       type: object
@@ -4600,6 +4566,7 @@ components:
       - PRESENT
       - ABSENT
       - LATE
+      - PARTIAL
     QuestionType:
       type: string
       enum:
@@ -4616,6 +4583,19 @@ components:
       enum:
       - VIEW_ONLY
       - DOWNLOADABLE
+    TeacherCurriculum:
+      type: string
+      enum:
+      - IGCSE
+      - AMERICAN_DIPLOMA
+      - BOTH
+      description: WF 02 instructor sign-up. `BOTH` means the teacher may create courses of either track.
+    CourseCurriculum:
+      type: string
+      enum:
+      - IGCSE
+      - AMERICAN_DIPLOMA
+      description: A course is one track. Parent child cards concatenate this with `subject_name`.
     LoginRequest:
       type: object
       properties:
@@ -4628,7 +4608,7 @@ components:
         remember_me:
           type: boolean
           default: false
-          description: Extends refresh-token lifetime only.
+          description: Stored on `USER_SESSIONS.remember_me`. Refresh lifetime 30 days when true, 7 days when false. Access JWT stays 15 minutes.
       required:
       - email
       - password
@@ -4643,7 +4623,23 @@ components:
       properties:
         access_token: *id021
         refresh_token: *id021
-        expires_in: *id020
+        expires_in:
+          type: integer
+          description: Access-token lifetime in seconds. Always `900` (15 minutes).
+        user:
+          $ref: '#/components/schemas/CurrentUser'
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      - user
+    CurrentUser:
+      type: object
+      properties:
+        id: *id022
+        email: *id021
+        full_name: *id021
+        avatar_url: *id019
         roles:
           type: array
           items:
@@ -4655,50 +4651,37 @@ components:
           - assistant
           - parent
           - student
-          description: Where the client should land. Resolved server-side (WF 01).
+          description: Where the client should land. First matching role in order TEACHER, ASSISTANT, PARENT, STUDENT.
       required:
-      - access_token
-      - refresh_token
+      - id
+      - email
+      - full_name
+      - roles
       - routing_target
-    CurrentUser:
-      type: object
-      properties:
-        id: *id022
-        email: *id021
-        first_name: *id021
-        last_name: *id021
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/RoleName'
-        routing_target: *id021
     RegisterRequest:
       type: object
       properties:
         full_name:
           type: string
-          description: WF 02 captures one field; `USERS` splits first/last (gap A21).
+          minLength: 1
+          description: WF 02 one field. Stored on `USERS.full_name`.
         email:
           type: string
           format: email
         password:
           type: string
           format: password
+          minLength: 8
         subjects_taught:
-          type: array
-          items: *id021
-          description: Plural on WF 02; `TEACHERS.specialization` is one string (gap A21).
-        curriculum:
           type: string
-          enum:
-          - IGCSE
-          - AMERICAN_DIPLOMA
-          - BOTH
-          description: No curriculum field exists in the ERD (gap G16).
+          description: WF 02 one input. Stored on `TEACHERS.subjects_taught`. Several subjects are comma-separated free text.
+        curriculum:
+          $ref: '#/components/schemas/TeacherCurriculum'
       required:
       - full_name
       - email
       - password
+      - curriculum
     ForgotPasswordRequest:
       type: object
       properties:
@@ -4710,31 +4693,47 @@ components:
     ResetPasswordRequest:
       type: object
       properties:
-        token: *id021
+        email:
+          type: string
+          format: email
+        otp:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: The 6-digit code emailed by `POST /auth/password/forgot`. Not a token.
         password:
           type: string
           format: password
+          minLength: 8
       required:
-      - token
+      - email
+      - otp
       - password
     Profile:
       type: object
       properties:
         id: *id022
         email: *id021
-        first_name: *id021
-        last_name: *id021
+        full_name: *id021
+        avatar_url: *id019
         phone: *id019
         bio: *id019
-        specialization: *id019
+        subjects_taught: *id019
+        curriculum:
+          $ref: '#/components/schemas/TeacherCurriculum'
+        school_name: *id019
+        grade_level: *id019
     ProfileUpdate:
       type: object
       properties:
-        first_name: *id021
-        last_name: *id021
+        full_name: *id021
+        avatar_url: *id021
         phone: *id021
         bio: *id021
-        specialization: *id021
+        subjects_taught: *id021
+        curriculum:
+          $ref: '#/components/schemas/TeacherCurriculum'
+        school_name: *id021
+        grade_level: *id021
     UserSession:
       type: object
       properties:
@@ -4743,6 +4742,10 @@ components:
         ip_address: *id019
         is_revoked: &id028
           type: boolean
+        remember_me: *id028
+        is_current:
+          type: boolean
+          description: True when this row is the `sid` in the caller's access token.
         expires_at: &id023
           type: string
           format: date-time
@@ -4754,13 +4757,15 @@ components:
         email:
           type: string
           format: email
+        full_name:
+          type: string
+          description: Name the issuer types (WF 13 modal; student/parent names are pre-set). Copied to `USERS.full_name` on accept unless the accept body overrides it.
         role:
           $ref: '#/components/schemas/InviteRole'
-        groups:
+        group_ids:
           type: array
-          items:
-            $ref: '#/components/schemas/InviteScopeGroup'
-          description: ASSISTANT and STUDENT invites. Flags are read only for ASSISTANT.
+          items: *id022
+          description: ASSISTANT and STUDENT — at least one. PARENT — omit or empty.
         linked_student_id:
           type:
           - string
@@ -4771,9 +4776,10 @@ components:
         expires_at:
           type: string
           format: date-time
-          description: Optional; the server applies a default window if omitted.
+          description: Optional. Default is now + 7 days. Must be in the future.
       required:
       - email
+      - full_name
       - role
     Invite:
       type: object
@@ -4783,6 +4789,9 @@ components:
           format: uuid
         email:
           type: string
+        full_name:
+          type: string
+          description: The invitee's name as typed by the issuer. WF 13 pending rows use this before acceptance.
         role:
           $ref: '#/components/schemas/InviteRole'
         issued_by_user_id: *id024
@@ -4818,6 +4827,11 @@ components:
           - string
           - 'null'
           format: date-time
+        revoked_by_user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
         created_at: *id025
       description: The token itself is never returned. Only `token_hash` is stored, and only the emailed
         link carries the raw value.
@@ -4831,8 +4845,7 @@ components:
           $ref: '#/components/schemas/InviteRole'
         scope_description:
           type: string
-          description: Prose built from the scope rows, e.g. "attendance, grading, and homework uploads
-            for Section A and Section B".
+          description: Prose built from the scoped groups, e.g. "Section A and Section B. The instructor will set what you can do after you activate".
         groups:
           type: array
           items:
@@ -4850,12 +4863,12 @@ components:
       properties:
         full_name:
           type: string
-          description: Ignored when the address already has an account.
+          description: TA setup (WF 04) collects this. Student and parent setup omit it; acceptance then copies `INVITES.full_name`. Ignored when the address already has an account.
         password:
           type: string
           format: password
-          description: Ignored when the address already has an account — that path attaches rather than
-            creating.
+          minLength: 8
+          description: Always required. Creates the password for a new account, or verifies it when attaching to an existing one.
       required:
       - password
     Plan:
@@ -4864,6 +4877,7 @@ components:
         plan_id: *id022
         name: *id021
         max_students: *id020
+        max_ta_seats: *id020
         price: &id026
           type: string
           description: Decimal as a string, to avoid float loss. Single implied currency.
@@ -4910,6 +4924,8 @@ components:
         course_id: *id022
         course_code: *id021
         subject_name: *id021
+        curriculum:
+          $ref: '#/components/schemas/CourseCurriculum'
         description: *id019
         grade_level: *id019
         fees: *id026
@@ -4922,15 +4938,20 @@ components:
       properties:
         course_code: *id021
         subject_name: *id021
+        curriculum:
+          $ref: '#/components/schemas/CourseCurriculum'
         description: *id021
         grade_level: *id021
         fees: *id026
       required:
       - subject_name
+      - curriculum
     CourseUpdate:
       type: object
       properties:
         subject_name: *id021
+        curriculum:
+          $ref: '#/components/schemas/CourseCurriculum'
         description: *id021
         grade_level: *id021
         fees: *id026
@@ -5208,8 +5229,8 @@ components:
       type: object
       properties:
         user_id: *id022
-        first_name: *id021
-        last_name: *id021
+        full_name: *id021
+        avatar_url: *id019
         email: *id021
         student_code: *id019
         school_name: *id019
@@ -5220,13 +5241,13 @@ components:
         can_take_attendance: *id028
         can_grade: *id028
         can_upload_solutions: *id028
-      description: The three checkboxes WF 13 sets at invite time.
+      description: The three checkboxes WF 13 sets on Edit after the TA accepts. Defaults are false.
     Assistant:
       type: object
       properties:
         user_id: *id022
-        first_name: *id021
-        last_name: *id021
+        full_name: *id021
+        avatar_url: *id019
         email: *id021
         groups:
           type: array
@@ -5919,7 +5940,7 @@ components:
         name: *id021
         course_label:
           type: string
-          description: WF 17's "IG Physics". No curriculum field exists (gap C12).
+          description: WF 17's "American Diploma Math" — `COURSES.curriculum` plus `subject_name`.
         attendance_percent:
           type:
           - integer
@@ -5965,6 +5986,8 @@ components:
           enum:
           - ASSIGNMENT
           - QUIZ
+          - ATTENDANCE
+          - FEE
           - ANNOUNCEMENT
           - SYSTEM
         is_read: *id028
@@ -5973,13 +5996,13 @@ components:
           type:
           - string
           - 'null'
-          description: Gap A23 — no target reference exists, so deep-linking is unavailable.
+          description: Entity kind for the WF 17 deep-link — session, quiz, fee, or lesson.
         target_id:
           type:
           - string
           - 'null'
           format: uuid
-          description: Gap A23.
+          description: Id of that entity.
     MarkReadRequest:
       type: object
       properties:
@@ -6005,6 +6028,8 @@ components:
       properties:
         course_id: *id022
         subject_name: *id021
+        curriculum:
+          $ref: '#/components/schemas/CourseCurriculum'
         group_id: *id022
         group_name: *id021
         teacher_name: *id021
@@ -6076,20 +6101,11 @@ components:
         either.'
     InviteScopeGroup:
       type: object
-      description: One `INVITE_GROUPS` row. Mirrors `GROUP_ASSISTANTS` so acceptance is a copy.
+      description: One `INVITE_GROUPS` row. Group scope only; permission flags are set on `GROUP_ASSISTANTS` after acceptance.
       properties:
         group_id: *id024
         group_name:
           type: string
-        can_take_attendance:
-          type: boolean
-          default: false
-        can_grade:
-          type: boolean
-          default: false
-        can_upload_solutions:
-          type: boolean
-          default: false
       required:
       - group_id
   responses:
@@ -6126,7 +6142,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     '410':
-      description: The token has expired or was already used.
+      description: The invite token or password-reset OTP has expired, was already used, or is locked.
       content:
         application/json:
           schema:

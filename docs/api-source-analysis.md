@@ -44,7 +44,7 @@ COHORTS (group-specific, per class instance)
 ### Entity inventory (`ERD:19-296`)
 | Cluster | Entities |
 |---|---|
-| Identity & access | `USERS`, `ROLES`, `USER_ROLES`, `USER_SESSIONS`, `TEACHERS`, `STUDENTS`, `PARENTS`, `PARENT_STUDENTS`, `INVITES`, `INVITE_GROUPS`, `NOTIFICATIONS` |
+| Identity & access | `USERS`, `ROLES`, `USER_ROLES`, `USER_SESSIONS`, `TEACHERS`, `STUDENTS`, `PARENTS`, `PARENT_STUDENTS`, `INVITES`, `INVITE_GROUPS`, `NOTIFICATIONS` (password-reset OTP in cache) |
 | Billing (platform) | `SUBSCRIPTION_PLANS`, `SUBSCRIPTIONS` |
 | Curriculum | `COURSES`, `CHAPTERS`, `LESSONS`, `RECORDED_SESSIONS`, `MATERIALS`, `ASSIGNMENTS` |
 | Cohorts | `GROUPS`, `GROUP_ASSISTANTS`, `STUDENT_GROUPS`, `LIVE_SESSIONS`, `ATTENDANCE`, `QUIZZES` |
@@ -98,7 +98,7 @@ Notable access rules:
 |---|---|---|---|
 | 01 | Login `s-login` | — | session create (role-based routing) |
 | 02 | Instructor sign-up `s-signup` | plans | user + TEACHER + subscription (3 steps: account → plan → payment) |
-| 03 | Forgot password `s-forgot` | — | reset request (uniform response, no account-existence leak; expiring link) |
+| 03 | Forgot password `s-forgot` | — | reset request (uniform response, no account-existence leak; emailed OTP, not a link) |
 | 04 | TA invite `s-tainvite` | invite token + scope preview | activate account |
 | 05 | Parent/student invite `s-familyinvite` | invite token | activate; auto-approved parent↔student link |
 | 06 | Instructor dashboard `s-idash` | aggregate counts, today's sessions, pending-grading count | — |
@@ -149,21 +149,21 @@ These must be computed server-side and documented as response fields, not stored
 | # | Gap | Evidence | Suggested resolution |
 |---|---|---|---|
 | ~~G1~~ | ✅ **RESOLVED.** `PARENT` added to `ROLES`; `PARENTS` profile table + `PARENT_STUDENTS (parent_user_id, student_id)` M:N junction added; `STUDENTS.parent_phone` removed | `ERD:31-34`, `ERD:65-74`, `ERD:429-435` | Done. Remaining open question: which linked parent receives a singular notification ("Send reminder", `WF #s-fees`) when a child has more than one |
-| G2 | **No student fees/payments entity.** `COURSES.fees` is a price tag only; `SUBSCRIPTIONS` is *instructor → platform* billing, a different money flow from *student → instructor* fees | `ERD:109-124`, `ERD:127-136` vs `WF #s-fees`, `#s-pchild`, `WF #s-signup` step 2–3 | Add `ENROLLMENT_FEES` / `PAYMENTS` (per student per group per period, status PAID/DUE/OVERDUE) and keep it distinct from `SUBSCRIPTIONS` |
-| G3 | **No lesson publish state.** Draft vs Published gates student visibility | `WF #s-curriculum`, `#s-lesson` vs `ERD:146-152` (`LESSONS` has no status) | Add `LESSONS.status DRAFT/PUBLISHED` (`COURSES.status` already exists at `ERD:127-136`) |
-| ~~G4~~ | ✅ **RESOLVED.** `INVITES` + `INVITE_GROUPS` | `ERD:76-88`, `ERD:90-96`, `ERD:417-428` | Issuer is a `USERS` fk, not `TEACHERS`, so a student can invite their own parent (WF 05). Scope mirrors `GROUP_ASSISTANTS` column for column, so acceptance is a copy rather than a translation. Four questions remain open — see `ERD` Open Question 6 |
-| G5 | **No password-reset token store** | `WF #s-forgot` | Add `PASSWORD_RESET_TOKENS`, or reuse a generic token table with G4 |
-| ~~G6~~ | ✅ **RESOLVED** — three permission booleans + `is_revoked` on `GROUP_ASSISTANTS` — **TA permissions are not modeled.** `GROUP_ASSISTANTS` is a bare join; the UI sets per-section scope **and** per-action permissions (attendance / grading / homework upload) at invite time | `ERD:209-217` vs `WF #s-isettings`, `#s-tainvite` | Add permission flags/enum set on `GROUP_ASSISTANTS`, or a `TA_PERMISSIONS` table |
-| G7 | **No material access mode** (view-only vs downloadable, set at upload) | `WF #s-content` vs `ERD:168-174` | Add `MATERIALS.access_mode` |
-| G8 | **No view tracking.** `max_watch_limit` is declarative only, and screen 20 promises a "viewed" state visible on the roster | `ERD:497-529` (explicitly acknowledged), `WF #s-lesson` | Add `RECORDED_SESSION_VIEWS` / `MATERIAL_VIEWS` (already named as the natural extension in the ERD) |
+| ~~G2~~ | ✅ **RESOLVED.** `ENROLLMENT_FEES` + `PAYMENTS` | student × group × monthly period, distinct from `SUBSCRIPTIONS` | `WF #s-fees`, `#s-pchild` |
+| ~~G3~~ | ✅ **RESOLVED.** `LESSONS.status DRAFT/PUBLISHED` | `WF #s-curriculum`, `#s-lesson` | — |
+| ~~G4~~ | ✅ **RESOLVED.** `INVITES` + `INVITE_GROUPS` | `ERD:76-88`, `ERD:90-96`, `ERD:417-428` | Issuer is a `USERS` fk, not `TEACHERS`, so a student can invite their own parent (WF 05). `INVITE_GROUPS` stores group scope only; TA permission flags are granted after acceptance. Four questions remain open — see `ERD` Open Question 6 |
+| ~~G5~~ | ✅ **RESOLVED.** Password-reset OTP in **cache**, not a table | `WF #s-forgot` | Hashed 6-digit code, 10-minute TTL, 5 attempts. Reset body is `email` + `otp` + `password` |
+| ~~G6~~ | ✅ **RESOLVED** — three permission booleans + `is_revoked` on `GROUP_ASSISTANTS`. Flags **default false**; granted after the TA accepts (WF 13 Edit), not stored on `INVITE_GROUPS` | `ERD` vs `WF #s-isettings`, `#s-tainvite` | Invite collects section scope; Edit after activation collects attendance / grading / homework upload |
+| ~~G7~~ | ✅ **RESOLVED.** `MATERIALS.access_mode`, `size_bytes`, `mime_type` | `WF #s-content` | — |
+| ~~G8~~ | **Dropped.** No view-log tables. `max_watch_limit` stays on `RECORDED_SESSIONS` but is not enforced | `WF #s-lesson` | Roster "viewed" and watch caps are out of schema |
 | ~~G9~~ | ✅ **RESOLVED** by the assignment/quiz split — **No quiz time limit** despite a countdown timer on the quiz screen | `WF #s-quiz` vs `ERD:247-257` | Add `ASSESSMENTS.duration_seconds` (nullable = untimed) |
-| G10 | **No recurrence model.** "Recurring sessions can be set weekly per section; editing one occurrence prompts *this session only* vs *this and following*" | `WF #s-calendar` vs `ERD:200-207` (`schedule_info` is a free-text hint) | Either materialize occurrences on create, or add a `SESSION_SERIES` parent — must be decided, it changes the whole session-write API |
+| ~~G10~~ | ✅ **RESOLVED.** `SESSION_SERIES` + materialized `LIVE_SESSIONS`; `PATCH ?scope=this\|this_and_following` | `WF #s-calendar` | `D14` still open when later occurrences have attendance |
 | ~~G11~~ | ✅ **RESOLVED** — **Submission status conflates lateness with grading.** Enum is `SUBMITTED, GRADED, REJECTED, LATE` — a late-then-graded submission loses its lateness, but the wireframe requires late to stay visible to instructor and parent | `ERD:270-283` vs `WF #s-homework` | Split into `status` + a separate `is_late` boolean |
 | ~~G12~~ | ✅ **RESOLVED** for re-submission shape (overwrite in place); lock trigger still open — **No re-submission semantics.** "Re-submission allowed until graded; grading locks it" | `WF #s-homework` vs `ERD:270-283` | Define whether re-submit updates in place or versions; document the lock as `409` after `GRADED` |
-| G13 | **Partial attendance** ("leaving early can flag partial attendance") has no enum value — `ATTENDANCE.status` is `PRESENT/ABSENT/LATE` | `WF #s-liveclass` vs `ERD:238-244` | Add `PARTIAL`, or record join/leave timestamps |
+| ~~G13~~ | ✅ **RESOLVED.** `ATTENDANCE.status` includes `PARTIAL`; `joined_at` / `left_at` / `recorded_by_user_id` | `WF #s-liveclass` | Manual override wins and stamps `recorded_by` |
 | G14 | **"Terms" level missing.** Scope and the builder screen both show subjects → **terms** → chapters → lessons; the ERD is COURSES → CHAPTERS → LESSONS | `SCOPE §3.B`, `WF #s-curriculum` ("IG Physics — Term 1") vs `ERD:127-152` | Confirm term is folded into the course (one course per term) — likely, but state it explicitly in the docs |
-| G15 | **No auto-attendance integration fields.** Online sessions "auto-mark attendance from the video tool's join log" | `WF #s-session`, `#s-liveclass` vs `ERD:224-244` | Needs a provider/meeting-id field and a webhook ingest endpoint |
-| G16 | **Curriculum enum mismatch.** Instructor sign-up captures curriculum (IGCSE / American Diploma / Both); nothing on `TEACHERS` or `COURSES` stores it — only free-text `grade_level` | `WF #s-signup` vs `ERD:52-56`, `ERD:127-136` | Add a curriculum enum where it matters for filtering |
+| ~~G15~~ | ✅ **RESOLVED.** `meeting_provider` + `external_meeting_id` + webhook | `WF #s-session`, `#s-liveclass` | — |
+| ~~G16~~ | ✅ **RESOLVED.** `TEACHERS.curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH`); `COURSES.curriculum` is one track | `WF #s-signup`, `#s-phome` | Parent child cards concatenate course curriculum + subject |
 
 ---
 

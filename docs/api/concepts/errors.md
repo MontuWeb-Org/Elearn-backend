@@ -28,7 +28,7 @@ or the status.
 | `403` | Authenticated, but wrong role, ownership scope or permission flag |
 | `404` | No such resource, or the caller may not see it |
 | `409` | Conflict with current state — uniqueness, a lock, or a `RESTRICT` delete |
-| `410` | Token expired or already used |
+| `410` | Invite token or password-reset OTP expired, used, or locked |
 | `422` | Well-formed but violates a schema invariant |
 
 ## Cross-branch invariants — `422`
@@ -78,9 +78,26 @@ or the status.
 
 | Code | Status | Note |
 |---|---|---|
-| `INVALID_CREDENTIALS` | `401` | Never distinguishes an unknown email from a wrong password |
-| `TOKEN_EXPIRED` | `401` | Also used for invite and reset links |
+| `UNAUTHENTICATED` | `401` | Missing, malformed, expired, or revoked access token |
+| `INVALID_CREDENTIALS` | `401` | Login, refresh, or existing-account invite accept — never distinguishes unknown email from a wrong password |
+| `INVALID_OTP` | `401` | Wrong reset code, or no matching account — never distinguished |
+| `OTP_EXPIRED` | `410` | Reset code expired, already used, or locked after too many attempts |
+| `ACCOUNT_DISABLED` | `403` | Password matched, `USERS.is_active` is false |
+| `EMAIL_TAKEN` | `409` | Register (or a create-on-accept race) against an existing address |
+| `FIELD_NOT_ALLOWED` | `422` | Profile field this role cannot write |
 | `INSUFFICIENT_SCOPE` | `403` | Right role, wrong ownership — or a TA missing the permission flag |
+
+## Invites
+
+| Code | Status | Note |
+|---|---|---|
+| `INVITE_INVALID` | `410` | Unknown, expired, rescinded, spent, or empty-scope token. **Never 404** |
+| `INVITE_NOT_PENDING` | `409` | Rescind of an invite that is already accepted or already rescinded |
+| `GROUPS_REQUIRED` | `422` | Assistant or student invite with no `group_ids` |
+| `GROUPS_NOT_ALLOWED` | `422` | Parent invite with `group_ids` |
+| `LINKED_STUDENT_REQUIRED` | `422` | Parent invite missing `linked_student_id` |
+| `ALREADY_LINKED` | `409` | Parent already linked to that child |
+| `INSTRUCTOR_CANNOT_ACCEPT_INVITE` | `409` | A `TEACHER` account presented a TA, student, or parent invite |
 
 {% hint style="warning" %}
 `POST /auth/password/forgot` returns `202` unconditionally and raises nothing. Leaking whether an

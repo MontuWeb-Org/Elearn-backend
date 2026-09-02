@@ -12,12 +12,12 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | A2 | Student fee status (Paid / Overdue), per-student "Plan" column (Monthly), receipts, "Send reminder", parent-side payment | `WF 12 s-fees`, `18 s-pchild` | No payment, invoice, or fee-schedule entity. `COURSES.fees` is one static decimal (`ERD:127-136`); `SUBSCRIPTIONS` is instructor→platform (`ERD:117-124`) |
 | A3 | Revenue aggregates — "This month", "Outstanding", "Paid on time 91%" | `WF 12 s-fees` | No transaction data of any kind |
 | ~~A4~~ | ✅ **CLOSED.** Invite issuance and activation — token, role, scope preview, expiry, acceptance | `WF 04 s-tainvite`, `05 s-familyinvite`, `13 s-isettings` | `INVITES` (`ERD:76-88`) stores the token hash, issuer, role and lifecycle; `INVITE_GROUPS` (`ERD:90-96`) stores the scope. Resolved |
-| A5 | Password reset link, expiry window, expired-link resend | `WF 03 s-forgot` | No reset-token entity |
-| ~~A6~~ | ✅ **CLOSED.** `GROUP_ASSISTANTS` now carries scope (rows) + `can_take_attendance` / `can_grade` / `can_upload_solutions` + `is_revoked` —  TA permission model — per-section scope ("All sections" / "Section A only") **and** per-action permissions (attendance / grading / homework upload), set at invite time, editable, revocable without deleting grading history | `WF 13 s-isettings`, `04 s-tainvite` | `GROUP_ASSISTANTS` is a bare composite-PK join with no permission or scope columns (`ERD:209-217`) |
+| A5 | Password reset — 6-digit OTP, expiry window, expired-code resend | `WF 03 s-forgot` | ✅ **CLOSED.** OTP lives in **cache** (hashed, TTL, attempt counter). No table, no reset-link token |
+| ~~A6~~ | ✅ **CLOSED.** `GROUP_ASSISTANTS` now carries scope (rows) + `can_take_attendance` / `can_grade` / `can_upload_solutions` + `is_revoked`. Permissions are granted **after invite acceptance** (WF 13 Edit), not copied from `INVITE_GROUPS` —  TA permission model — per-section scope ("All sections" / "Section A only") **and** per-action permissions (attendance / grading / homework upload), editable, revocable without deleting grading history | `WF 13 s-isettings`, `04 s-tainvite` | `GROUP_ASSISTANTS` is a bare composite-PK join with no permission or scope columns (`ERD:209-217`) |
 | A7 | Lesson `Published` / `Draft` state gating student and parent visibility | `WF 07 s-curriculum`, `20 s-lesson` | `LESSONS` has no status field (`ERD:146-152`); status exists only on `COURSES` (`ERD:127-136`) |
 | A8 | Per-file access mode — view-only vs downloadable, set at upload | `WF 08 s-content` | `MATERIALS` has title / file_url / uploaded_at only (`ERD:168-174`) |
 | A9 | File metadata shown in the materials list — size ("1.2 MB"), file type icon | `WF 08 s-content` | No size or MIME on `MATERIALS` |
-| A10 | Engagement tracking — "opening a file logs a viewed state the instructor can see on the roster"; per-lesson `Done` / `In progress` progress chips | `WF 20 s-lesson`, `11 s-roster` | No view/progress table. The ERD states enforcement of `max_watch_limit` "lives in the application (or is deferred)" and names a `RECORDED_SESSION_VIEWS` log as a future extension (`ERD:497-529`) |
+| A10 | Engagement tracking — "opening a file logs a viewed state"; per-lesson `Done` / `In progress` | `WF 20 s-lesson`, `11 s-roster` | **Dropped.** No `MATERIAL_VIEWS` / `RECORDED_SESSION_VIEWS`. Out of schema |
 | ~~A11~~ | ✅ **CLOSED.** `QUIZZES.duration_seconds` + `QUIZ_ATTEMPTS.expires_at` —  Quiz countdown timer ("⏱ 08:42 remaining") | `WF 22 s-quiz` | `ASSESSMENTS` has no duration/time-limit field (`ERD:247-257`) |
 | ~~A12~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS` with `status = IN_PROGRESS` —  In-progress quiz attempt — question navigator, jumping between answered/unanswered, state before final submit | `WF 22 s-quiz` | `ASSESSMENT_SUBMISSIONS` models only a completed submission (`submitted_at`, no start/attempt state) (`ERD:270-283`) |
 | A13 | Recurring sessions set weekly per section; editing one occurrence prompts "this session only" vs "this and following" | `WF 09 s-calendar` | `LIVE_SESSIONS` rows are independent; `GROUPS.schedule_info` is a free-text hint explicitly described as a default, not truth (`ERD:200-207`, `ERD:497-529`) |
@@ -28,12 +28,12 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~A18~~ | ✅ **CLOSED** for the re-submission half — `UNIQUE (assignment_id, student_id)`, overwrite in place. The *lock trigger* is still open (`ERD` Open Question 3) —  Re-submission until graded; grading locks the submission | `WF 23 s-homework` | No attempt/version or lock representation |
 | ~~A19~~ | ✅ **CLOSED.** `ASSIGNMENTS.solution_file_url` + `solution_released_at` —  "Upload homework solutions" by the TA — solution files attached to an assessment | `WF 15 s-grading` | `ASSESSMENTS` has no attachment or solution field (`ERD:247-257`) |
 | ~~A20~~ | ✅ **CLOSED.** `ASSIGNMENT_SUBMISSIONS.student_note` —  Student's optional "Notes for your teacher" attached to a homework submission | `WF 23 s-homework` | `ASSESSMENT_SUBMISSIONS.feedback_comments` is grader-side; no student-authored note field |
-| A21 | Instructor sign-up captures full name as one field, "Subject(s) taught" (plural), and curriculum choice IGCSE / American Diploma / **Both** | `WF 02 s-signup` | `USERS` splits `first_name`/`last_name`; `TEACHERS.specialization` is a single string; no curriculum field anywhere (`ERD:19-29`, `ERD:52-56`) |
-| A22 | "Remember me" on login | `WF 01 s-login` | No representation of session lifetime choice on `USER_SESSIONS` (`ERD:41-50`) |
-| A23 | Notification deep-links — "tapping an update deep-links to the specific session or quiz" | `WF 17 s-phome` | `NOTIFICATIONS` has title/message/type only, no target entity type or id (`ERD:98-106`) |
+| ~~A21~~ | ✅ **CLOSED.** `USERS.full_name`; `TEACHERS.subjects_taught` (one string); `TEACHERS.curriculum` plus `COURSES.curriculum` | `WF 02 s-signup` | Resolved. Instructor sign-up captures full name as one field, "Subject(s) taught" (plural), and curriculum choice IGCSE / American Diploma / **Both** |
+| ~~A22~~ | ✅ **CLOSED.** `USER_SESSIONS.remember_me` lengthens `expires_at` | `WF 01 s-login` | Resolved |
+| A23 | Notification deep-links — "tapping an update deep-links to the specific session or quiz" | `WF 17 s-phome` | ✅ **CLOSED.** `NOTIFICATIONS.target_type` / `target_id` |
 | ~~A24~~ | ✅ **CLOSED** with A1 — parent contact reachable via `PARENT_STUDENTS` → `PARENTS.phone` / `USERS.email` | `WF 11 s-roster` | Resolved |
-| A25 | Avatars / instructor logo / display names in the app chrome and greetings | `WF 06 s-idash`, `13 s-isettings`, `14 s-tadash` | No avatar or display-name field on `USERS` |
-| A26 | Student "Profile" section in the student nav | `WF 19 s-shome` | No student-editable profile fields defined |
+| ~~A25~~ | ✅ **CLOSED.** `USERS.avatar_url`; greetings render `full_name` | `WF 06 s-idash`, `13 s-isettings`, `14 s-tadash` | Resolved |
+| ~~A26~~ | ✅ **CLOSED.** Student-editable fields are `USERS.full_name` and `avatar_url` via `PATCH /me/profile`. WF 19 Profile is a nav item with no dedicated layout | `WF 19 s-shome` | Resolved |
 
 ---
 
@@ -82,13 +82,13 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~C9~~ | ✅ **CLOSED.** Countable from `QUIZ_ATTEMPTS (quiz_id, status)` —  "MCQs auto-graded — 18/24 already complete" | `WF 15 s-grading` | Requires per-question grading progress across submissions; `total_score` is a single nullable value on the submission |
 | ~~C10~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS.auto_score` vs `total_score` —  "MCQ score shows immediately; overall grade stays pending until a human grades it" | `WF 22 s-quiz` | Requires a partial/provisional score distinct from the final `total_score` |
 | C11 | File size ("1.2 MB") and type | `WF 08 s-content` | Not stored (A9) |
-| C12 | Curriculum label on a parent's child card ("IG Physics", "American Diploma Math") | `WF 17 s-phome` | No curriculum field; `COURSES.grade_level` is free text (A21) |
+| ~~C12~~ | ✅ **CLOSED.** `COURSES.curriculum` + `subject_name` | `WF 17 s-phome` | Parent child card label |
 | C13 | A single "Section" per student row | `WF 11 s-roster`, `12 s-fees` | `STUDENT_GROUPS` is many-to-many, so a student may map to several groups; the UI assumes one |
 | C14 | The roster for a past session ("Attendance (24)") | `WF 10 s-session` | Group membership is current-state only; a past session's roster would be reconstructed from present membership, which drifts as students join or leave |
 | C15 | TA's "Today's sessions to cover" | `WF 14 s-tadash` | `GROUP_ASSISTANTS` assigns a TA to a group, not to a session; "to cover" implies a per-session assignment that does not exist |
 | C16 | Attendance % and average grade per student | `WF 11 s-roster`, `17 s-phome`, `18 s-pchild` | Computable in principle, but the denominator is undefined — see D5, D15 |
 | C17 | "Needs grading — 24 pending" across all sections | `WF 06 s-idash`, `14 s-tadash` | Computable only once "pending" is defined (see D18) |
-| C18 | Relative timestamps and targets in the parent activity feed | `WF 17 s-phome` | `NOTIFICATIONS` has `created_at` but no target reference for the deep-link (A23) |
+| ~~C18~~ | ✅ **CLOSED.** `NOTIFICATIONS.target_type` / `target_id` | `WF 17 s-phome` | Deep-link |
 | C19 | Currency on any monetary figure | `WF 12 s-fees`, `02 s-signup` | No currency field on `COURSES.fees` or `SUBSCRIPTION_PLANS.price` |
 
 ---
@@ -116,7 +116,7 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | D17 | Quiz timer expiry — auto-submit, lock, or grace | `WF 22 s-quiz` |
 | ~~D18~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS.status = IN_PROGRESS / SUBMITTED / GRADED`; "pending" = `SUBMITTED` —  Status of a mixed MCQ/structured submission between auto-grading and human grading, and what "pending" counts in the dashboard badge | `WF 15 s-grading`, `22 s-quiz`, `06 s-idash` |
 | D19 | Fee cadence: the fees table has a per-student "Plan: Monthly" column while `COURSES.fees` is a single decimal — whether fees are per course, per group, per month, or per student | `WF 12 s-fees` vs `ERD:127-136` |
-| D20 | Sign-up step 2 sets the plan "based on student count and **TA seats**", but `SUBSCRIPTION_PLANS` has only `max_students` — whether TAs consume seats | `WF 02 s-signup` vs `ERD:109-115` |
+| ~~D20~~ | ✅ **CLOSED.** `SUBSCRIPTION_PLANS.max_ta_seats` | `WF 02 s-signup` vs `ERD` | TAs consume seats |
 | D21 | How view-only material access is enforced (streamed, signed URL, DRM) and whether recordings are hosted or externally linked | `WF 08 s-content` vs `ERD:154-174` (plain URL fields) |
 | D22 | Notification delivery channel — in-app only, or email/push, given the parent tier is framed as a mobile app and "Send reminder" implies outbound contact | `WF 12 s-fees`, `17 s-phome` |
 | D23 | The mechanism behind "instantly" / "in real time" (polling, SSE, WebSocket) is asserted on six flows but never specified | `SCOPE §3.C`; `WF 08, 09, 10, 15, 16, 17, 18` |
@@ -128,14 +128,14 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~D29~~ | ✅ **CLOSED.** This is exactly what the split fixes — `ASSIGNMENTS` and `QUIZZES` are separate entities on separate branches —  "Homework" appears as its own tab and nav item, distinct from quizzes, while the ERD models both as `ASSESSMENTS.type` | `WF 08 s-content`, `19 s-shome` vs `ERD:247-257` |
 | D30 | Whether the instructor can see or act on everything a TA can ("Instructor can see everything a TA does") including editing TA-entered grades and attendance | `WF 14 s-tadash` |
 | D31 | Revoking a TA "immediately removes access without deleting grading history" — the state of a revoked assistant row and of in-flight grading | `WF 13 s-isettings` vs `ERD:209-217` |
-| D32 | What curriculum "Both" means for a teacher, and whether curriculum is a property of the teacher, the course, or the group | `WF 02 s-signup` |
+| ~~D32~~ | ✅ **CLOSED.** Teacher `curriculum` may be `BOTH`; each `COURSES.curriculum` is one track (`IGCSE` or `AMERICAN_DIPLOMA`) | `WF 02 s-signup` | Resolved |
 | D34 | **New, introduced by the assignment/quiz split.** `ASSIGNMENTS.due_date` is one absolute timestamp on a cohort-independent row, so every section shares it — but sections move at different speeds. See `ERD` Open Question 1 | `WF 11 s-roster`, `23 s-homework` vs `ERD:176-187` |
 | D35 | **New.** WF 19 renders "Recent grade — Homework 1.1 — 8/10", but assignments are no longer scored. Either the wireframe drops the number or `ASSIGNMENT_SUBMISSIONS` regains an optional score | `WF 19 s-shome` vs `ERD:189-197` |
 | D36 | **New.** Nothing locks an assignment re-submission now that there is no grading step. `solution_released_at` is the recommended trigger | `WF 23 s-homework` vs `ERD:176-187` |
 | D37 | **New.** `GROUP_ASSISTANTS` stores "All sections" as N rows, so a TA does **not** inherit access to groups created later. If the instructor expects inheritance, a wildcard or course-level grant is needed instead | `WF 13 s-isettings` vs `ERD:209-217` |
 | D38 | **New.** Whether the last per-answer grade auto-finalizes an attempt, or finalize stays an explicit second step, is undecided — it changes whether the student/parent fan-out has one trigger or two | `WF 15 s-grading` vs `ERD:270-283` |
-| D39 | **New.** Acceptance takes the token alone; whether it must also match `INVITES.email` is undecided. Token-only means a forwarded invite still works | `WF 04 s-tainvite`, `05 s-familyinvite` vs `ERD:76-88` |
-| D40 | **New.** Who may rescind a student-issued parent invite — the student, the instructor, or both. `revoked_at` records that it happened, not who did it | `WF 05 s-familyinvite`, `13 s-isettings` vs `ERD:76-88` |
+| ~~D39~~ | ✅ **CLOSED.** Token-only accept; password creates or verifies the account | `WF 04 s-tainvite`, `05 s-familyinvite` | Resolved |
+| ~~D40~~ | ✅ **CLOSED.** Issuer, or an instructor of the linked child, may rescind. `revoked_by_user_id` records who | `WF 05 s-familyinvite`, `13 s-isettings` | Resolved |
 | D41 | **New.** `GROUPS → INVITE_GROUPS` is `CASCADE`, so archiving a section silently narrows any unaccepted invite scoped to it — possibly to nothing. Whether that should invalidate the invite instead is a policy question | `ERD:90-96`, `ERD:465-496` |
 | D33 | **New, introduced by the parent M:N.** A child may now have several linked parents, but every parent-directed action in the UI is singular — "Send reminder" notifies *the* linked parent (`WF 12 s-fees`), and the roster panel shows *the* parent contact (`WF 11 s-roster`). Whether these fan out to all linked parents, or one is designated primary, is undecided | `WF 11 s-roster`, `12 s-fees` vs `ERD:70-74` |
 

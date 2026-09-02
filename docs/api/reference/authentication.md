@@ -2,14 +2,85 @@
 
 One login serves all four tiers. The server resolves the caller's role and returns a `routing_target`; the client does not decide where to land.
 
-Authentication is an access token plus a refresh token. The refresh token is stored hashed in `USER_SESSIONS` and **rotates on every use** — presenting an old one revokes the session. "Remember me" on WF 01 affects refresh-token lifetime only; it does not change the access token.
-
-**Only instructors self-register.** TA, student and parent accounts are always created by an instructor-issued invite — see [Invites](invites.md).
+**Only instructors self-register.** TA, student and parent accounts are always created by an invite — see [Invites](invites.md).
 
 {% hint style="info" %}
-11 operations — **4 ready**, **5** awaiting a decision, **2 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+11 operations — **all ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
+## Implementation contract
+
+These numbers and rules are part of the API. Do not invent different lifetimes or hash schemes.
+
+### Tokens
+
+| Token | Form | Lifetime | Storage |
+|---|---|---|---|
+| Access | JWT (`HS256`) | **15 minutes** (`expires_in` is always `900`) | Not stored. Claims: `sub` (user id), `sid` (`USER_SESSIONS.user_session_id`), `roles` (string array), `typ: "access"`, `iat`, `exp` |
+| Refresh | Opaque, 32 random bytes, base64url | **7 days**, or **30 days** when `remember_me` is true | `USER_SESSIONS.refresh_token_hash` = SHA-256 hex of the raw token |
+
+Every authenticated request loads the session by `sid` and rejects it if `is_revoked` or `expires_at` is past. Logout and password reset take effect immediately, not at access-token expiry.
+
+Refresh **rotates**: `POST /auth/refresh` hashes the presented token, finds the row, writes a new hash, and returns a new pair. Presenting a rotated or unknown refresh token is `401 INVALID_CREDENTIALS` — never distinguished from a bad login.
+
+`USER_SESSIONS.remember_me` records the checkbox. It only changes refresh lifetime.
+
+### Passwords
+
+- Hash with **bcrypt** (cost 12). Column is `USERS.password_hash`.
+- Create/reset/accept require **at least 8 characters**. Login does not re-check length.
+- Confirm-password on WF 02 is client-side only; the API takes `password` once.
+
+### Password-reset OTP
+
+| Rule | Value |
+|---|---|
+| Form | 6 digits, cryptographically random (`000000`–`999999`) |
+| Storage | **Cache**, not a table. Key `pwdreset:{userId}`. Value is SHA-256 hex of the code plus an attempt counter |
+| TTL | **10 minutes** |
+| Attempts | **5** failed checks evict the key |
+| New request | Replaces the live entry (new hash, TTL restart, attempts reset) |
+| `POST /auth/password/forgot` | **Always `202`**. Missing accounts are not distinguishable from sent codes |
+| Wrong code / unknown email | `401 INVALID_OTP` — never distinguished |
+| Expired, used, or locked | `410 OTP_EXPIRED` |
+| Success | Set the password, **delete the cache key**, **revoke every `USER_SESSIONS` row** for that user |
+
+### Session rows
+
+Login, register, and invite-accept each insert one `USER_SESSIONS` row (`user_agent` and `ip_address` from the request, `remember_me` false unless login sent it).
+
+`GET /me/sessions` lists non-revoked, non-expired rows. `is_current` is true when `sid` matches the caller's access token. `DELETE /me/sessions/{sessionId}` sets `is_revoked`. Revoking the current session is allowed and is equivalent to logout.
+
+### Routing
+
+`routing_target` is derived from `USER_ROLES`, first match in this order: `TEACHER` → `instructor`, `ASSISTANT` → `assistant`, `PARENT` → `parent`, `STUDENT` → `student`.
+
+Inactive users (`is_active = false`) whose password is correct receive `403 ACCOUNT_DISABLED`. Wrong password stays `401 INVALID_CREDENTIALS`.
+
+### Profile writes by role
+
+| Field | Who may PATCH |
+|---|---|
+| `full_name`, `avatar_url` | All |
+| `bio`, `subjects_taught`, `curriculum` | Instructor only |
+| `phone` | Parent only |
+| `school_name`, `grade_level` | Student only |
+
+Any other field in the body is `422 FIELD_NOT_ALLOWED`. Email is not editable.
+
+### Error codes used here
+
+| Code | Status | When |
+|---|---|---|
+| `INVALID_CREDENTIALS` | 401 | Bad login, bad refresh, or wrong password on an existing-account invite accept |
+| `INVALID_OTP` | 401 | Wrong reset code, or no matching account |
+| `OTP_EXPIRED` | 410 | Reset code expired, already used, or locked |
+| `ACCOUNT_DISABLED` | 403 | Password matched, `is_active` is false |
+| `EMAIL_TAKEN` | 409 | `POST /auth/register` when the address already exists |
+| `FIELD_NOT_ALLOWED` | 422 | Profile field that this role cannot write |
+| `UNAUTHENTICATED` | 401 | Missing or expired access token |
+
+---
 
 ## Log in
 

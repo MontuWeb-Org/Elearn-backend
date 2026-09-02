@@ -20,11 +20,11 @@ seconds, so the CLI is the path used here.
 ## One-time setup
 
 1. Create an API token at [app.gitbook.com/account/developer](https://app.gitbook.com/account/developer).
-2. Find the organization id:
+2. Copy the **organization id** from any GitBook URL. It is the segment after `/o/`:
 
-   ```bash
-   npx -y @gitbook/cli@latest openapi organizations list
-   ```
+   `https://app.gitbook.com/o/`**`DaDQkGCM7r2TghFSBFLQ`**`/s/...`
+
+   (The CLI no longer has `openapi organizations list`.)
 
 3. Put both in `.env` (already gitignored):
 
