@@ -111,3 +111,5 @@ Two provider-specific gotchas, both already handled in `.env.example` and `src/c
 - **quality** — lint, Prettier check, typecheck
 - **build** — `npm run build`, uploads `dist/` as an artifact
 - **database** — starts a `postgres:16` service, applies migrations, runs the connectivity check
+# docs
+
