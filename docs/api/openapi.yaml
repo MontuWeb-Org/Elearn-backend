@@ -688,6 +688,12 @@ paths:
         description: Filter by lifecycle status.
         schema:
           $ref: '#/components/schemas/CourseStatus'
+      - name: grade_level
+        in: query
+        required: false
+        description: Filter by `COURSES.grade_level`.
+        schema:
+          type: string
       - *id001
       - *id002
       responses:
@@ -713,10 +719,12 @@ paths:
       - Courses
       operationId: createCourse
       summary: Create a course
-      description: "New courses start as `DRAFT`. `subject_id` is a catalog id from `GET /subjects`.\
-        \ `SUBJECTS.curriculum` must equal the body's `curriculum` (`422 SUBJECT_CURRICULUM_MISMATCH`).\
-        \ `subject_name` is not accepted — it is joined on read.\n\n**Roles:** I  \n**Ownership scope:**\
-        \ self  \n**Wireframe:** 02, 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: "New courses start as `DRAFT`. Required: `subject_id` (from `GET /subjects`), `curriculum`,\
+        \ and `title` (WF 07 header, typically the term — a second term is a second course). `SUBJECTS.curriculum`\
+        \ must equal `curriculum` (`422 SUBJECT_CURRICULUM_MISMATCH`). The teacher's `TEACHERS.curriculum`\
+        \ must allow that track (`422 CURRICULUM_NOT_ALLOWED`). `subject_name` is not accepted — it is\
+        \ joined on read.\n\n**Roles:** I  \n**Ownership scope:** self  \n**Wireframe:** 02, 07\n\n**Status:**\
+        \ ✅ Specifiable — fully backed by the ERD."
       requestBody:
         required: true
         content:
@@ -746,9 +754,9 @@ paths:
       - Courses
       operationId: getCourse
       summary: Get a course
-      description: "Course header — WF 07's \"IG Physics — Term 1\".\n\n**Roles:** I, A  \n**Ownership\
-        \ scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ⚠️ \"Term\" has no entity. A term is\
-        \ folded into the course, i.e. one course per term (gap G14). Confirm before building."
+      description: "Course header — WF 07. Render `{subject_name} — {title}` (e.g. Physics — Term 1).\
+        \ Term is not an entity; a second term is a second course.\n\n**Roles:** I, A  \n**Ownership\
+        \ scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - &id003
         name: courseId
@@ -776,9 +784,10 @@ paths:
       - Courses
       operationId: updateCourse
       summary: Update a course
-      description: "Rename, change `subject_id` / `curriculum` (must still match), edit description, or\
-        \ change `status`.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n\
-        **Status:** ✅ Specifiable — fully backed by the ERD."
+      description: "Change `title`, `subject_id` / `curriculum` (must still match), description, `grade_level`,\
+        \ `fees`, or `status` (`DRAFT` / `ACTIVE` / `ARCHIVED`). Retire a course with `ARCHIVED`; do not\
+        \ delete it once it has groups.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:**\
+        \ 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id003
       requestBody:
@@ -809,10 +818,11 @@ paths:
       - Courses
       operationId: deleteCourse
       summary: Delete a course
-      description: "Cascades the whole curriculum spine: chapters, lessons, materials, recordings and\
-        \ assignments. Fails if any assignment has submissions.\n\n**Roles:** I  \n**Ownership scope:**\
-        \ own-course  \n**Wireframe:** —\n\n**Status:** ⚠️ No screen offers this, and deletion-versus-archival\
-        \ is undecided (gap D26). Documented because the cascade rules define it."
+      description: "Empty `DRAFT` only — no groups. A course with sections is retired with `PATCH` `status\
+        \ = ARCHIVED` (`409 GROUP_HAS_HISTORY`). Also `409 HAS_STUDENT_WORK` if any assignment under the\
+        \ spine has submissions.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:**\
+        \ —\n\n**Status:** ✅ Specifiable — fully backed by the ERD. No screen offers this; the UI path\
+        \ is archive."
       parameters:
       - *id003
       responses:
@@ -833,9 +843,9 @@ paths:
       operationId: listChapters
       summary: List chapters
       description: "Chapters in `order_index` order. Pass `include=lessons` to nest each chapter's lessons\
-        \ — this is **the Curriculum Builder's page-load read** (WF 07), and it replaces the separate\
-        \ `/tree` endpoint that earlier drafts proposed.\n\n**Roles:** I, A  \n**Ownership scope:** own-course\
-        \  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+        \ — **this is the Curriculum Builder page-load** (WF 07). There is no `/tree` path. Syllabus lists\
+        \ are small; send `limit=100` to get the full tree in one page.\n\n**Roles:** I, A  \n**Ownership\
+        \ scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id003
       - name: include
@@ -996,8 +1006,9 @@ paths:
       - Chapters
       operationId: deleteChapter
       summary: Delete a chapter
-      description: "Cascades to lessons, and through them to materials, recordings and assignments.\n\n\
-        **Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable\
+      description: "Cascades to lessons, and through them to materials, recordings and assignments. `409\
+        \ HAS_STUDENT_WORK` if any nested assignment has submissions — same RESTRICT as deleting a lesson.\n\
+        \n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable\
         \ — fully backed by the ERD."
       parameters:
       - *id004
@@ -1045,10 +1056,10 @@ paths:
       - Lessons
       operationId: createLesson
       summary: Create a lesson
-      description: "\"+ Add Lesson\".\n\nNote the parent: a lesson hangs off a **chapter**, not a course.\
-        \ `LESSONS.chapter_id` is the foreign key and the course is derived through it.\n\n**Roles:**\
-        \ I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully\
-        \ backed by the ERD."
+      description: "\"+ Add Lesson\". Starts as `DRAFT`. Students and parents cannot see it until `POST\
+        \ .../publish`.\n\nNote the parent: a lesson hangs off a **chapter**, not a course. `LESSONS.chapter_id`\
+        \ is the foreign key and the course is derived through it.\n\n**Roles:** I  \n**Ownership scope:**\
+        \ own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id004
       requestBody:
@@ -1197,11 +1208,11 @@ paths:
       operationId: publishLesson
       summary: Publish a lesson
       description: "Draft → Published. Makes the lesson and its attached materials and recordings visible\
-        \ on the student's Lesson view (WF 20). Modelled as a state transition rather than a `PATCH` field\
-        \ so the real-time fan-out has a single hook.\n\n**Roles:** I  \n**Ownership scope:** own-course\
-        \  \n**Wireframe:** 07\n\n**Status:** \U0001F6AB Blocked — `LESSONS` has no `status` field (G3).\
-        \ Whether a published material inside a draft lesson is visible is also undecided (gap D2). The\
-        \ shape below is proposed, not final."
+        \ on the student's Lesson view (WF 20). A published file inside a still-draft lesson is **not**\
+        \ visible — the lesson gate wins. Idempotent if already published. Modelled as a state transition\
+        \ rather than a `PATCH` field so the real-time fan-out has a single hook.\n\n**Roles:** I  \n\
+        **Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed\
+        \ by the ERD."
       parameters:
       - *id005
       responses:
@@ -1223,9 +1234,9 @@ paths:
       - Lessons
       operationId: unpublishLesson
       summary: Unpublish a lesson
-      description: "Published → Draft. Drafts are invisible to students and parents.\n\n**Roles:** I \
-        \ \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:** \U0001F6AB Blocked — `LESSONS`\
-        \ has no `status` field (G3). The shape below is proposed, not final."
+      description: "Published → Draft. Drafts are invisible to students and parents. Idempotent if already\
+        \ a draft.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n**Status:**\
+        \ ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id005
       responses:
@@ -2156,10 +2167,14 @@ paths:
       - Groups
       operationId: unenrollStudent
       summary: Unenroll a student
-      description: "Removes the `STUDENT_GROUPS` row.\n\n**Roles:** I  \n**Ownership scope:** own-course\
-        \  \n**Wireframe:** 11\n\n**Status:** ⚠️ Group membership is current-state only — there is no\
-        \ enrollment history, so removing a student changes how past session rosters are reconstructed\
-        \ (gaps E7, C14)."
+      description: |-
+        Removes the `STUDENT_GROUPS` row. Past attendance rows stay; `GET .../attendance` unions recorded marks with current members, so a departed student still appears on sessions they were marked for.
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** 11
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id009
       - name: studentId
@@ -2252,11 +2267,11 @@ paths:
       - Assistants
       operationId: updateAssistant
       summary: Edit scope and permissions
-      description: "\"Edit\" on WF 13. Replaces the group set and the three flags in one call.\n\n**Roles:**\
-        \ I  \n**Ownership scope:** own-course  \n**Wireframe:** 13\n\n**Status:** ⚠️ Because \"All sections\"\
-        \ is N rows rather than a wildcard, a TA does **not** inherit access to groups created later.\
-        \ If the instructor expects inheritance, this needs a wildcard row or a course-level grant (gaps\
-        \ D10, D37)."
+      description: "\"Edit\" on WF 13. Replaces the group set and the three flags in one call.\n\n\"\
+        All sections\" is stored as N `GROUP_ASSISTANTS` rows, not a wildcard. A TA does **not** inherit\
+        \ groups created later — the instructor Edits again to add them. That is the product rule (D10),\
+        \ not an open question.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 13\n\
+        \n**Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id010
       requestBody:
@@ -2458,17 +2473,18 @@ paths:
       - Scheduling
       operationId: createLiveSession
       summary: Schedule a session
-      description: "\"+ New Session\" on WF 09. The online/offline toggle maps to `mode`, which drives\
-        \ two validation rules: `ONLINE` requires `meeting_url`, `ONSITE` requires `classroom_location`.\n\
-        \nIf `lesson_id` is set it must belong to the group's course — a section can only cover lessons\
-        \ from its own course. `lesson_id` is nullable on purpose: revision, exam prep and Q&A classes\
-        \ map to no lesson.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 09\n\n\
-        **Status:** ⚠️ **Recurrence is not modelled (G10), and this is shape-defining.** WF 09 sets recurring\
-        \ sessions weekly per section, and editing one occurrence prompts \"this session only\" vs \"\
-        this and following\". `LIVE_SESSIONS` rows are independent and `GROUPS.schedule_info` is explicitly\
-        \ a free-text hint. Either occurrences are materialized on create — which adds a `scope=this|this_and_following`\
-        \ parameter to the update — or a `SESSION_SERIES` parent is introduced. Decide before implementing;\
-        \ it changes the whole session-write API."
+      description: |-
+        "+ New Session" on WF 09. The online/offline toggle maps to `mode`: `ONLINE` requires a pasted `meeting_url`, `ONSITE` requires `classroom_location`.
+
+        If `recurrence` is sent, the server writes a `SESSION_SERIES` parent and materializes one `LIVE_SESSIONS` row per occurrence until `until`. The instructor copies the Zoom/Meet link; the platform does not OAuth into the provider and does not generate the URL.
+
+        If `lesson_id` is set it must belong to the group's course. `lesson_id` is nullable on purpose: revision, exam prep and Q&A map to no lesson.
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** 09
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       requestBody:
         required: true
         content:
@@ -2526,13 +2542,16 @@ paths:
       - Scheduling
       operationId: updateLiveSession
       summary: Update a session
-      description: "Change time, room, mode or the linked lesson.\n\n**Roles:** I  \n**Ownership scope:**\
-        \ own-course  \n**Wireframe:** 09\n\n**Status:** ⚠️ **Recurrence is not modelled (G10), and this\
-        \ is shape-defining.** WF 09 sets recurring sessions weekly per section, and editing one occurrence\
-        \ prompts \"this session only\" vs \"this and following\". `LIVE_SESSIONS` rows are independent\
-        \ and `GROUPS.schedule_info` is explicitly a free-text hint. Either occurrences are materialized\
-        \ on create — which adds a `scope=this|this_and_following` parameter to the update — or a `SESSION_SERIES`\
-        \ parent is introduced. Decide before implementing; it changes the whole session-write API."
+      description: |-
+        Change time, room, mode or the linked lesson.
+
+        `scope=this` (default) updates this row and detaches it from the series (`series_id` null). `scope=this_and_following` updates this occurrence and later siblings by `scheduled_start`. **Siblings that already have any attendance row are skipped** — their time, room and lesson stay as recorded. The response lists `updated_session_ids` and `skipped_session_ids`. Attendance is never rewritten.
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** 09
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id011
       requestBody:
@@ -2547,7 +2566,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LiveSession'
+                $ref: '#/components/schemas/LiveSessionPatchResult'
         '400':
           $ref: '#/components/responses/400'
         '404':
@@ -2564,9 +2583,16 @@ paths:
       - Scheduling
       operationId: cancelLiveSession
       summary: Cancel a session
-      description: "Sets `status = CANCELLED`.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n\
-        **Wireframe:** —\n\n**Status:** ⚠️ The enum value exists but no screen offers the action, and\
-        \ whether cancelled sessions stay in the attendance denominator is undecided (gaps B14, D15)."
+      description: |-
+        Sets `status = CANCELLED`. Kept even though WF 09 has no cancel control.
+
+        Cancelled sessions are **dropped from attendance %** — they are not in the denominator (D15).
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** —
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id011
       responses:
@@ -2588,11 +2614,16 @@ paths:
       - Scheduling
       operationId: getJoinInfo
       summary: Get join information
-      description: "Returns the embed target and whether the join window is open. Drives WF 19's \"Join\
-        \ Now\" button, which activates only inside the window and otherwise shows a countdown.\n\n**Roles:**\
-        \ S  \n**Ownership scope:** own-enrollment  \n**Wireframe:** 19, 21\n\n**Status:** \U0001F6AB\
-        \ Blocked — no join-window or early-join field exists (gap A15), and `meeting_url` is a plain\
-        \ string with no provider or external meeting id (G15). The shape below is proposed, not final."
+      description: |-
+        Returns the pasted `meeting_url` and whether the join window is open (`join_opens_minutes_before` before `scheduled_start`). Drives WF 19's "Join Now" button.
+
+        This is **not** a Zoom/Meet OAuth flow. The instructor pasted the link on create; this endpoint hands that string to the student when the window is open. `409 JOIN_WINDOW_CLOSED` outside it.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 19, 21
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id011
       responses:
@@ -2616,11 +2647,16 @@ paths:
       - Scheduling
       operationId: meetingWebhook
       summary: Meeting provider webhook
-      description: "Ingests a provider join log to auto-mark attendance for online sessions. Authenticated\
-        \ by signature, not by bearer token.\n\n**Roles:** —  \n**Ownership scope:** signature  \n**Wireframe:**\
-        \ 10, 21\n\n**Status:** \U0001F6AB Blocked — no provider, credential or external-meeting-id representation\
-        \ exists (G15). Auto-generated links and join-log attendance are out of scope until an integration\
-        \ is modelled. The shape below is proposed, not final."
+      description: |-
+        Ingests a provider join log to auto-mark attendance. Authenticated by signature, not bearer token.
+
+        **v1 does not call this.** Instructors paste `meeting_url`; the platform holds no OAuth tokens or webhook secrets. `meeting_provider` and `external_meeting_id` exist so this endpoint can be wired later without a schema change. Until credentials exist, self-mark (`POST .../attendance/self`) is the online attendance path.
+
+        **Roles:** —  
+        **Ownership scope:** signature  
+        **Wireframe:** 10, 21
+
+        **Status:** ⚠️ Unused until a meeting provider is connected. Do not implement OAuth in this pass.
       security: []
       parameters:
       - name: provider
@@ -2649,12 +2685,16 @@ paths:
       - Attendance
       operationId: getAttendance
       summary: Get the attendance roster
-      description: "One row per student with any recorded status.\n\n**Read this carefully for past sessions.**\
-        \ Group membership is current-state only — there is no enrollment history. The response is therefore\
-        \ built from recorded `ATTENDANCE` rows **unioned with** current membership, not from membership\
-        \ alone; otherwise a student who has since left the section vanishes from a class they attended.\n\
-        \n**Roles:** I, A  \n**Ownership scope:** assigned-group + can_take_attendance  \n**Wireframe:**\
-        \ 10, 16\n\n**Status:** ⚠️ See the union note above (gaps E7, C14)."
+      description: |-
+        One row per student with any recorded status. **Same API** for the instructor Session View (WF 10) and the TA Attendance screen (WF 16).
+
+        **Past sessions.** Group membership is current-state only. The response is recorded `ATTENDANCE` rows **unioned with** current members (C14). A student who left still appears if they were marked; a student who joined later appears unmarked.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_take_attendance  
+        **Wireframe:** 10, 16
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id011
       responses:
@@ -2711,10 +2751,14 @@ paths:
       - Attendance
       operationId: overrideAttendance
       summary: Override one student
-      description: "Single-student correction.\n\n**Roles:** I, A  \n**Ownership scope:** assigned-group\
-        \ + can_take_attendance  \n**Wireframe:** 10\n\n**Status:** ⚠️ `ATTENDANCE` has no `recorded_by`\
-        \ column, so an override is indistinguishable from the original mark. Which value wins when auto-marking\
-        \ and manual marking disagree, and when reconciliation happens, is undecided (gap D5)."
+      description: |-
+        Single-student correction. A later manual mark **wins** over a self-mark or join-log mark and stamps `recorded_by_user_id`. Machine marks leave that field null.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_take_attendance  
+        **Wireframe:** 10, 16
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - name: attendanceId
         in: path
@@ -2784,11 +2828,14 @@ paths:
       - Attendance
       operationId: markSelfPresent
       summary: Auto-mark on join
-      description: "Marks the calling student present when they join the embedded live class (WF 21).\n\
-        \n**Roles:** S  \n**Ownership scope:** own-enrollment  \n**Wireframe:** 21\n\n**Status:** \U0001F6AB\
-        \ Blocked — WF 21 says leaving early \"can flag partial attendance\", but `ATTENDANCE.status`\
-        \ is `PRESENT / ABSENT / LATE` with no `PARTIAL` value and no join or leave timestamps (G13).\
-        \ It also collides with manual marking — see gap D5. The shape below is proposed, not final."
+      description: |-
+        Marks the calling student `PRESENT` when they join (WF 21). Sets `joined_at`; `recorded_by_user_id` is null (machine). Leaving early sets `left_at` and may flip status to `PARTIAL`. A later instructor/TA `PATCH` wins.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 21
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id011
       responses:
@@ -2864,15 +2911,16 @@ paths:
       - Quizzes
       operationId: createQuiz
       summary: Create a quiz
-      description: "`opens_at` and `closes_at` are the availability window; `duration_seconds` is the\
-        \ clock that starts when a student begins. A quiz may be open for a week but allow 30 minutes\
-        \ once started — either bound may bind first. Omit `duration_seconds` for an untimed quiz.\n\n\
-        If `lesson_id` is set it is **tagging only** and must belong to the group's course; it does not\
-        \ move the quiz onto the curriculum branch.\n\n**Roles:** I  \n**Ownership scope:** own-course\
-        \  \n**Wireframe:** 08\n\n**Status:** ⚠️ A quiz is authored **inside a lesson** on WF 08, but\
-        \ it is group-scoped by design and no screen asks which section it is for (gap D1). This path\
-        \ makes the group explicit: authoring one quiz for three sections is three calls. Assignments\
-        \ no longer carry this ambiguity — they are natively lesson-scoped."
+      description: |-
+        `opens_at` and `closes_at` are the availability window; `duration_seconds` is the clock that starts when a student begins. Omit `duration_seconds` for an untimed quiz. `max_attempts` defaults to 1 and is editable.
+
+        Quizzes stay on the **cohort branch**: this path is always `/groups/{groupId}/quizzes`. Authoring from a lesson on WF 08 still requires an explicit group — one quiz for three sections is three POSTs. `lesson_id` is tagging only and must belong to the group's course.
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** 08
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id009
       requestBody:
@@ -2931,11 +2979,14 @@ paths:
       - Quizzes
       operationId: updateQuiz
       summary: Update a quiz
-      description: "Edit the window, the duration or the title.\n\n**Roles:** I  \n**Ownership scope:**\
-        \ own-course  \n**Wireframe:** 08\n\n**Status:** ⚠️ A quiz is authored **inside a lesson** on\
-        \ WF 08, but it is group-scoped by design and no screen asks which section it is for (gap D1).\
-        \ This path makes the group explicit: authoring one quiz for three sections is three calls. Assignments\
-        \ no longer carry this ambiguity — they are natively lesson-scoped."
+      description: |-
+        Edit the window, the duration, the title or `max_attempts`.
+
+        **Roles:** I  
+        **Ownership scope:** own-course  
+        **Wireframe:** 08
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id012
       requestBody:
@@ -3133,12 +3184,16 @@ paths:
       - Quiz attempts
       operationId: startAttempt
       summary: Start an attempt
-      description: "Begins the quiz. Sets `started_at` and **materializes** `expires_at` as `min(started_at\
-        \ + duration_seconds, quiz.closes_at)`.\n\nThe expiry is stored rather than recomputed on every\
-        \ read so the countdown, the auto-submit and late-answer rejection all agree on one authoritative\
-        \ instant.\n\n`UNIQUE (quiz_id, student_id)` means one attempt per student — **retakes are not\
-        \ modelled**. A second call returns 409.\n\n**Roles:** S  \n**Ownership scope:** own-enrollment\
-        \  \n**Wireframe:** 22\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: |-
+        Begins the quiz. Sets `started_at` and **materializes** `expires_at` as `min(started_at + duration_seconds, quiz.closes_at)`. `attempt_number` is the next integer for this student.
+
+        `max_attempts` (default 1) is the retake cap. A second start while one attempt is `IN_PROGRESS` returns `409 ATTEMPT_IN_PROGRESS` (resume that attempt). Starting after `max_attempts` completed attempts returns `409 ATTEMPT_LIMIT_REACHED`.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 22
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id012
       responses:
@@ -3233,10 +3288,16 @@ paths:
       - Quiz attempts
       operationId: saveAnswers
       summary: Autosave answers
-      description: "Upserts one or more answers against `UNIQUE (attempt_id, question_id)`. Called as\
-        \ the student moves between questions.\n\nReturns `409 ATTEMPT_EXPIRED` past `expires_at`.\n\n\
-        **Roles:** S  \n**Ownership scope:** self  \n**Wireframe:** 22\n\n**Status:** ✅ Specifiable —\
-        \ fully backed by the ERD."
+      description: |-
+        Upserts one or more answers against `UNIQUE (attempt_id, question_id)`. Called as the student moves between questions.
+
+        If the attempt is still `IN_PROGRESS` and `now >= expires_at`, the server auto-submits first (same as POST .../submit), then this call returns `409 ATTEMPT_EXPIRED`.
+
+        **Roles:** S  
+        **Ownership scope:** self  
+        **Wireframe:** 22
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id014
       requestBody:
@@ -3268,10 +3329,16 @@ paths:
       - Quiz attempts
       operationId: submitAttempt
       summary: Submit an attempt
-      description: "Finalizes. Auto-scores every `MCQ` answer into `auto_score` and sets `status = SUBMITTED`.\
-        \ Structured answers enter the grading queue.\n\n**Roles:** S  \n**Ownership scope:** self  \n\
-        **Wireframe:** 22\n\n**Status:** ⚠️ What happens at timer expiry — auto-submit, hard lock, or\
-        \ a grace period — is undecided (gap D17). The schema supports all three."
+      description: |-
+        Finalizes. Auto-scores every `MCQ` answer into `auto_score` and sets `status = SUBMITTED`. Structured answers enter the grading queue.
+
+        **Timer expiry is auto-submit (D17).** When `expires_at` is reached the same path runs — no grace period. The client should POST this at zero; if it does not, the next student request (GET/PATCH) or a worker submits. Idempotent if already submitted.
+
+        **Roles:** S  
+        **Ownership scope:** self  
+        **Wireframe:** 22
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id014
       responses:
@@ -3327,8 +3394,8 @@ paths:
         \ joined to `QUIZ_QUESTIONS` on `question_type = 'STRUCTURED'` and to `GROUP_ASSISTANTS` for scope.\
         \ The partial index `QUIZ_ANSWERS (attempt_id) WHERE points_awarded IS NULL` exists for exactly\
         \ this.\n\n**The unit of work is one answer, not one attempt.** WF 15 serves \"Youssef T. — Q4\
-        \ (structured answer)\" with its own score box. Two TAs may legitimately grade different questions\
-        \ of the same student's paper, which is why grader attribution lives on the answer.\n\nEach item\
+        \ (structured answer)\" with its own score box. Grader attribution lives on the answer. `GET /grading/queue/next`\
+        \ takes a soft claim so Skip does not re-serve the same essay.\n\nEach item\
         \ carries the student, the question text, the points available, the student's answer and the `model_answer`.\n\
         \n**Authorization.** Every endpoint in this group requires `can_grade` on the group that owns\
         \ the answer, resolved through `attempt → quiz → group`, with `is_revoked = false`. The course's\
@@ -3407,16 +3474,16 @@ paths:
       - Grading
       operationId: getNextGradingItem
       summary: Serve the next item
-      description: "Returns the next ungraded answer and takes a **soft claim** on it — `claimed_by_user_id`\
-        \ and `claimed_at`. This is what makes \"Skip\" work without re-serving the same essay to the\
-        \ same grader.\n\n**Authorization.** Every endpoint in this group requires `can_grade` on the\
-        \ group that owns the answer, resolved through `attempt → quiz → group`, with `is_revoked = false`.\
-        \ The course's owning instructor always passes. A TA with \"Attendance only\" gets `403 INSUFFICIENT_SCOPE`.\n\
-        \n**Roles:** I, A  \n**Ownership scope:** assigned-group + can_grade  \n**Wireframe:** 15\n\n\
-        **Status:** ⚠️ The claim is advisory, expires after a few minutes, and never blocks a grade. It\
-        \ exists because WF 13 shows two TAs and the persona has 150+ students, so concurrent grading\
-        \ is real. If only one person ever grades, drop this endpoint, `/skip`, and both claim columns,\
-        \ and page through `/grading/queue` instead."
+      description: |-
+        Returns the next ungraded answer and takes a **soft claim** on it — `claimed_by_user_id` and `claimed_at`. This is what makes "Skip" work without re-serving the same essay to the same grader.
+
+        The claim is advisory, expires after a few minutes, and never blocks a grade. Prefer unclaimed or expired-claim items; skip items this caller already skipped in this session.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_grade  
+        **Wireframe:** 15
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - name: quiz_id
         in: query
@@ -3444,12 +3511,14 @@ paths:
       - Grading
       operationId: skipGradingItem
       summary: Skip an item
-      description: "Releases the claim and returns the answer to the pool.\n\n**Authorization.** Every\
-        \ endpoint in this group requires `can_grade` on the group that owns the answer, resolved through\
-        \ `attempt → quiz → group`, with `is_revoked = false`. The course's owning instructor always passes.\
-        \ A TA with \"Attendance only\" gets `403 INSUFFICIENT_SCOPE`.\n\n**Roles:** I, A  \n**Ownership\
-        \ scope:** assigned-group + can_grade  \n**Wireframe:** 15\n\n**Status:** ⚠️ See `GET /grading/queue/next`\
-        \ — the claim model is optional."
+      description: |-
+        Releases the claim and returns the answer to the pool.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_grade  
+        **Wireframe:** 15
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - &id015
         name: answerId
@@ -3474,16 +3543,18 @@ paths:
       - Grading
       operationId: gradeAnswer
       summary: Grade one answer
-      description: "**\"Save\" on WF 15.** Writes `points_awarded` and an optional `evaluator_comment`,\
-        \ stamps `graded_by_user_id` and `graded_at`, and clears any claim.\n\nThree validation rules\
-        \ apply:\n\n- `0 <= points_awarded <= question.points` → `422 POINTS_EXCEED_QUESTION`\n- only\
-        \ `STRUCTURED` answers are human-graded → `422 NOT_MANUALLY_GRADABLE` on an MCQ\n- the grader\
-        \ must hold `can_grade` on the answer's group → `403`\n\n**Authorization.** Every endpoint in\
-        \ this group requires `can_grade` on the group that owns the answer, resolved through `attempt\
-        \ → quiz → group`, with `is_revoked = false`. The course's owning instructor always passes. A\
-        \ TA with \"Attendance only\" gets `403 INSUFFICIENT_SCOPE`.\n\n**Roles:** I, A  \n**Ownership\
-        \ scope:** assigned-group + can_grade  \n**Wireframe:** 15\n\n**Status:** ✅ Specifiable — fully\
-        \ backed by the ERD."
+      description: |-
+        "Save" on WF 15. Writes `points_awarded` and an optional `evaluator_comment`, stamps `graded_by_user_id` and `graded_at`.
+
+        When this grade is the **last ungraded structured answer** on the attempt, the attempt is **auto-finalized**: `total_score` is the sum of `points_awarded`, `status = GRADED`, and `quiz.graded` fans out. Grading clears any claim.
+
+        Validation: `0 <= points_awarded <= question.points` → `422 POINTS_EXCEED_QUESTION`; only `STRUCTURED` answers are human-graded → `422 NOT_MANUALLY_GRADABLE` on an MCQ; grader must hold `can_grade` → `403`.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_grade  
+        **Wireframe:** 15
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id015
       requestBody:
@@ -3515,14 +3586,16 @@ paths:
       - Grading
       operationId: gradeAnswersBulk
       summary: Grade answers in bulk
-      description: "**Bulk save.** An array of `{answer_id, points_awarded, evaluator_comment}`.\n\nOne\
-        \ round trip per essay is the wrong shape at 150+ students; this is the endpoint a grading session\
-        \ should actually use. Partial success is reported per item rather than failing the whole batch.\n\
-        \n**Authorization.** Every endpoint in this group requires `can_grade` on the group that owns\
-        \ the answer, resolved through `attempt → quiz → group`, with `is_revoked = false`. The course's\
-        \ owning instructor always passes. A TA with \"Attendance only\" gets `403 INSUFFICIENT_SCOPE`.\n\
-        \n**Roles:** I, A  \n**Ownership scope:** assigned-group + can_grade  \n**Wireframe:** 15\n\n\
-        **Status:** ✅ Specifiable — fully backed by the ERD."
+      description: |-
+        **Bulk save.** An array of `{answer_id, points_awarded, evaluator_comment}`.
+
+        Same auto-finalize rule as single grade: when the last structured answer on an attempt in the batch is scored, that attempt flips to `GRADED` and fans out.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_grade  
+        **Wireframe:** 15
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       requestBody:
         required: true
         content:
@@ -3550,20 +3623,14 @@ paths:
       - Grading
       operationId: finalizeAttempt
       summary: Finalize grading
-      description: "Computes `total_score` as the sum of all `points_awarded`, sets `status = GRADED`,\
-        \ stamps the attempt's `graded_by_user_id` and `graded_at`, and fires the student and parent fan-out\
-        \ (`quiz.graded`).\n\nReturns `409 ATTEMPT_INCOMPLETE` if any structured answer is still ungraded.\n\
-        \n**Authorization.** Every endpoint in this group requires `can_grade` on the group that owns\
-        \ the answer, resolved through `attempt → quiz → group`, with `is_revoked = false`. The course's\
-        \ owning instructor always passes. A TA with \"Attendance only\" gets `403 INSUFFICIENT_SCOPE`.\n\
-        \n**Roles:** I, A  \n**Ownership scope:** assigned-group + can_grade  \n**Wireframe:** 15\n\n\
-        **Status:** ⚠️ **Auto-finalize or explicit?** Either the last `PATCH /answers/{id}/grade` on an\
-        \ attempt flips it to `GRADED` automatically, or finalize stays a deliberate second step so a\
-        \ grader can review the whole paper before releasing it. Auto-finalize fits WF 15 better — its\
-        \ queue is answer-at-a-time across many students and never shows a whole paper — with this endpoint\
-        \ kept as an instructor override. Undecided; it changes whether the fan-out has one trigger or\
-        \ two (gap D38). Regrades also overwrite rather than append, so a TA's original score is lost\
-        \ when an instructor overrides it (gap D9)."
+      description: |-
+        **Instructor override.** The happy path is auto-finalize: the last structured `PATCH .../grade` already flipped the attempt to `GRADED` and fired `quiz.graded`. This endpoint recomputes `total_score` and re-emits the fan-out. Idempotent if already `GRADED`. Returns `409 ATTEMPT_INCOMPLETE` if any structured answer is still ungraded — it does not zero-fill.
+
+        **Roles:** I, A  
+        **Ownership scope:** assigned-group + can_grade  
+        **Wireframe:** 15
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id014
       responses:
@@ -3587,13 +3654,14 @@ paths:
       - Roster
       operationId: listStudents
       summary: List students
-      description: "The WF 11 roster — 158 rows with attendance %, last quiz %, and homework state. Every\
-        \ aggregate here is computed on read and never stored.\n\n**Roles:** I, A  \n**Ownership scope:**\
-        \ own-course  \n**Wireframe:** 11\n\n**Status:** ⚠️ Three unresolved dependencies. The `Section`\
-        \ column assumes one group per student, but `STUDENT_GROUPS` is many-to-many (gaps C13, D4). \"\
-        Missing\" homework is the absence of a submission row past the deadline — derivable now, but which\
-        \ assignments a student is expected to have done depends on ERD Open Question 1. And the attendance-%\
-        \ denominator is undefined until cancelled-session handling is settled (gaps C16, D15)."
+      description: |-
+        The WF 11 roster — attendance %, last quiz %, and homework state. Aggregates are computed on read. Attendance % **excludes cancelled sessions** from the denominator (D15). Homework state is `SUBMITTED` / `LATE` / `MISSING` — never a score.
+
+        **Roles:** I, A  
+        **Ownership scope:** own-course  
+        **Wireframe:** 11
+
+        **Status:** ⚠️ The `Section` column assumes one group per student, but `STUDENT_GROUPS` is many-to-many (C13, D4).
       parameters:
       - name: group_id
         in: query
@@ -3793,12 +3861,14 @@ paths:
       - Dashboards
       operationId: getStudentDashboard
       summary: Student dashboard
-      description: "WF 19 — next session with its join state, work due soon across all enrolled courses,\
-        \ and recent grades.\n\n**Roles:** S  \n**Ownership scope:** own-enrollment  \n**Wireframe:**\
-        \ 19\n\n**Status:** ⚠️ \"Recent grade — Homework 1.1 — 8/10\" cannot be served: assignments are\
-        \ checked for on-time submission and are not scored. Either the screen shows a submitted/late\
-        \ chip instead, or assignment submissions regain an optional score (ERD Open Question 2). The\
-        \ join-state half depends on gap A15."
+      description: |-
+        WF 19 — next session with join state, work due soon, recent **quiz** grades, and homework as a status chip (`SUBMITTED` / `LATE` / `MISSING`). Assignments are never scored — do not render "Homework 1.1 — 8/10". Join state uses the pasted `meeting_url` and `join_opens_minutes_before`.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 19
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       responses:
         '200':
           description: Success
@@ -4299,7 +4369,7 @@ paths:
       description: "**Server-Sent Events.** The transport behind every \"instantly\" and \"in real time\"\
         \ promise in the wireframes. Responds with `text/event-stream`; each event carries a `type` and\
         \ a JSON payload.\n\n| Trigger | Event | Lands on |\n|---|---|---|\n| `POST /live-sessions/{id}/end`\
-        \ | `attendance.saved` | WF 17 badges, WF 18 |\n| `POST /attempts/{id}/finalize` | `quiz.graded`\
+        \ | `attendance.saved` | WF 17 badges, WF 18 |\n| `PATCH /answers/{id}/grade` (last structured) or `POST /attempts/{id}/finalize` | `quiz.graded`\
         \ | WF 22, WF 18 |\n| `POST /lessons/{id}/publish` | `content.published` | WF 20, WF 17 |\n| `POST\
         \ /assignments/{id}/solution/release` | `content.published` | WF 20 |\n| `POST` or `PATCH /live-sessions`\
         \ | `schedule.changed` | WF 19, WF 17 |\n| `POST /payments` | `fee.paid` | WF 17 badge clears\
@@ -4349,12 +4419,10 @@ paths:
       - Student portal
       operationId: listMyLessons
       summary: My lessons
-      description: "**Published lessons only**, grouped by chapter, each with its materials, recordings\
-        \ and progress chip. Drafts are invisible to students and parents.\n\n**Roles:** S  \n**Ownership\
-        \ scope:** own-enrollment  \n**Wireframe:** 20\n\n**Status:** \U0001F6AB Blocked — doubly. The\
-        \ published filter needs `LESSONS.status` (G3), and the `Done` / `In progress` chip needs per-student\
-        \ progress data that does not exist (G8, gap C5). Whether a published material inside a draft\
-        \ lesson is visible is also undecided (gap D2). The shape below is proposed, not final."
+      description: "**Published lessons only**, grouped by chapter, each with its materials and recordings.\
+        \ Drafts are invisible. There is no per-student view log, so `progress` is always `null`.\n\n\
+        **Roles:** S  \n**Ownership scope:** own-enrollment  \n**Wireframe:** 20\n\n**Status:** ✅ Specifiable\
+        \ — fully backed by the ERD."
       parameters:
       - *id003
       responses:
@@ -4453,8 +4521,14 @@ paths:
       - Student portal
       operationId: listMyGrades
       summary: My grades
-      description: "Recent graded attempts.\n\n**Roles:** S  \n**Ownership scope:** own-enrollment  \n\
-        **Wireframe:** 19\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: |-
+        Recent **quiz** grades only. Assignments are never scored and do not appear here.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 19
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - *id001
       - *id002
@@ -4482,9 +4556,14 @@ paths:
       - Student portal
       operationId: getMySchedule
       summary: My schedule
-      description: "Next session and upcoming classes, with join state.\n\n**Roles:** S  \n**Ownership\
-        \ scope:** own-enrollment  \n**Wireframe:** 19\n\n**Status:** ⚠️ Join state depends on the missing\
-        \ join-window field (gap A15)."
+      description: |-
+        Next session and upcoming classes, with join state from `join_opens_minutes_before` and the pasted `meeting_url`.
+
+        **Roles:** S  
+        **Ownership scope:** own-enrollment  
+        **Wireframe:** 19
+
+        **Status:** ✅ Specifiable — fully backed by the ERD.
       parameters:
       - name: from
         in: query
@@ -4990,6 +5069,7 @@ components:
       type: object
       properties:
         course_id: *id022
+        title: *id021
         course_code: *id021
         subject_id: *id022
         subject_name:
@@ -5007,6 +5087,10 @@ components:
     CourseCreate:
       type: object
       properties:
+        title:
+          type: string
+          minLength: 1
+          description: WF 07 header. Typically the term (e.g. Term 1). A second term is a second course.
         course_code: *id021
         subject_id: *id022
         curriculum:
@@ -5015,11 +5099,13 @@ components:
         grade_level: *id021
         fees: *id026
       required:
+      - title
       - subject_id
       - curriculum
     CourseUpdate:
       type: object
       properties:
+        title: *id021
         subject_id: *id022
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
@@ -5067,7 +5153,7 @@ components:
           enum:
           - DRAFT
           - PUBLISHED
-          description: Gap G3 — this field does not exist in the ERD yet.
+          description: New lessons start `DRAFT`. Only `PUBLISHED` is visible to students and parents.
         material_count: *id020
         recording_count: *id020
         assignment_count: *id020
@@ -5350,6 +5436,11 @@ components:
         live_session_id: *id022
         group_id: *id022
         group_name: *id021
+        series_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
         lesson_id:
           type:
           - string
@@ -5360,13 +5451,48 @@ components:
         title: *id021
         mode:
           $ref: '#/components/schemas/SessionMode'
-        meeting_url: *id019
+        meeting_url:
+          type:
+          - string
+          - 'null'
+          description: Pasted Zoom/Meet URL. Not generated by the platform.
         classroom_location: *id019
+        meeting_provider: *id019
+        external_meeting_id: *id019
+        join_opens_minutes_before:
+          type: integer
+          minimum: 0
+          description: Student Join Now window. Unused until that many minutes before start.
         scheduled_start: *id023
         scheduled_end: *id023
         status:
           $ref: '#/components/schemas/SessionStatus'
         created_at: *id023
+    LiveSessionPatchResult:
+      type: object
+      properties:
+        session:
+          $ref: '#/components/schemas/LiveSession'
+        updated_session_ids:
+          type: array
+          items: *id022
+        skipped_session_ids:
+          type: array
+          items: *id022
+          description: Later siblings that already had attendance and were left unchanged.
+    HomeworkStatusItem:
+      type: object
+      properties:
+        assignment_id: *id022
+        title: *id021
+        due_at: *id023
+        status:
+          type: string
+          enum:
+          - SUBMITTED
+          - LATE
+          - MISSING
+        submitted_at: *id027
     LiveSessionCreate:
       type: object
       properties:
@@ -5381,7 +5507,11 @@ components:
           $ref: '#/components/schemas/SessionMode'
         meeting_url:
           type: string
-          description: Required when mode is ONLINE.
+          description: Required when mode is ONLINE. Pasted by the instructor; the API does not mint Zoom/Meet links.
+        join_opens_minutes_before:
+          type: integer
+          minimum: 0
+          description: Optional. Minutes before scheduled_start that Join Now opens.
         classroom_location:
           type: string
           description: Required when mode is ONSITE.
@@ -5395,7 +5525,7 @@ components:
               enum:
               - WEEKLY
             until: *id023
-          description: Gap G10 — recurrence is not modelled. Shape shown for discussion only.
+          description: When set, writes SESSION_SERIES and materializes weekly LIVE_SESSIONS until this instant.
       required:
       - group_id
       - title
@@ -5422,7 +5552,7 @@ components:
           enum:
           - this
           - this_and_following
-          description: Gap G10 — only meaningful once recurrence exists (WF 09).
+          description: this = this row only (detach from series). this_and_following = this and later siblings; skip any that already have attendance.
     JoinInfo:
       type: object
       properties:
@@ -5512,6 +5642,11 @@ components:
           - integer
           - 'null'
           description: Null means untimed.
+        max_attempts:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Retake cap. Default 1 (no retakes unless the instructor raises it).
         question_count: *id020
         created_at: *id023
     QuizDetail:
@@ -5539,6 +5674,10 @@ components:
           type:
           - integer
           - 'null'
+        max_attempts:
+          type: integer
+          minimum: 1
+          default: 1
       required:
       - title
       - opens_at
@@ -5554,6 +5693,9 @@ components:
           type:
           - integer
           - 'null'
+        max_attempts:
+          type: integer
+          minimum: 1
     QuizQuestion:
       type: object
       properties:
@@ -5611,6 +5753,9 @@ components:
         quiz_title: *id021
         student_id: *id022
         student_name: *id021
+        attempt_number:
+          type: integer
+          minimum: 1
         started_at: *id023
         expires_at: *id023
         submitted_at: *id027
@@ -5938,6 +6083,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AttemptResult'
+          description: Quiz attempts only. Never homework scores.
+        recent_homework:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeworkStatusItem'
+          description: Status chips, not scores. Replaces WF 19's "Homework 1.1 — 8/10".
     ParentDashboard:
       type: object
       properties:
@@ -6098,6 +6249,7 @@ components:
       type: object
       properties:
         course_id: *id022
+        title: *id021
         subject_id: *id022
         subject_name:
           type: string
@@ -6115,12 +6267,14 @@ components:
         title: *id021
         order_index: *id020
         progress:
-          type: string
+          type:
+          - string
+          - 'null'
           enum:
           - DONE
           - IN_PROGRESS
           - NOT_STARTED
-          description: Gap G8 — no progress data exists.
+          description: Always `null` — there is no per-student view log.
         materials:
           type: array
           items:

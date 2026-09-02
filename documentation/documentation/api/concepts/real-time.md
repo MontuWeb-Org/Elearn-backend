@@ -30,7 +30,7 @@ Each promise in the wireframes maps to one trigger endpoint and one event type.
 | Trigger | Event | Appears on |
 |---|---|---|
 | `POST /live-sessions/{id}/end` | `attendance.saved` | Parent home badges, child detail |
-| `POST /attempts/{id}/finalize` | `quiz.graded` | Student quiz result, child detail |
+| Last structured `PATCH /answers/{id}/grade`, or `POST /attempts/{id}/finalize` | `quiz.graded` | Student quiz result, child detail |
 | `POST /lessons/{id}/publish` | `content.published` | Student lesson view, parent home |
 | `POST /assignments/{id}/solution/release` | `content.published` | Student lesson view |
 | `POST` or `PATCH /live-sessions` | `schedule.changed` | Student dashboard, parent home |

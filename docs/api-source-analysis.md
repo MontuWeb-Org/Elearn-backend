@@ -157,11 +157,11 @@ These must be computed server-side and documented as response fields, not stored
 | ~~G7~~ | ✅ **RESOLVED.** `MATERIALS.access_mode`, `size_bytes`, `mime_type` | `WF #s-content` | — |
 | ~~G8~~ | **Dropped.** No view-log tables. `max_watch_limit` stays on `RECORDED_SESSIONS` but is not enforced | `WF #s-lesson` | Roster "viewed" and watch caps are out of schema |
 | ~~G9~~ | ✅ **RESOLVED** by the assignment/quiz split — **No quiz time limit** despite a countdown timer on the quiz screen | `WF #s-quiz` vs `ERD:247-257` | Add `ASSESSMENTS.duration_seconds` (nullable = untimed) |
-| ~~G10~~ | ✅ **RESOLVED.** `SESSION_SERIES` + materialized `LIVE_SESSIONS`; `PATCH ?scope=this\|this_and_following` | `WF #s-calendar` | `D14` still open when later occurrences have attendance |
+| ~~G10~~ | ✅ **RESOLVED.** `SESSION_SERIES` + materialized `LIVE_SESSIONS`; `PATCH ?scope=this\|this_and_following` skips later rows that already have attendance | `WF #s-calendar` | D14 closed |
 | ~~G11~~ | ✅ **RESOLVED** — **Submission status conflates lateness with grading.** Enum is `SUBMITTED, GRADED, REJECTED, LATE` — a late-then-graded submission loses its lateness, but the wireframe requires late to stay visible to instructor and parent | `ERD:270-283` vs `WF #s-homework` | Split into `status` + a separate `is_late` boolean |
 | ~~G12~~ | ✅ **RESOLVED** for re-submission shape (overwrite in place); lock trigger still open — **No re-submission semantics.** "Re-submission allowed until graded; grading locks it" | `WF #s-homework` vs `ERD:270-283` | Define whether re-submit updates in place or versions; document the lock as `409` after `GRADED` |
 | ~~G13~~ | ✅ **RESOLVED.** `ATTENDANCE.status` includes `PARTIAL`; `joined_at` / `left_at` / `recorded_by_user_id` | `WF #s-liveclass` | Manual override wins and stamps `recorded_by` |
-| G14 | **"Terms" level missing.** Scope and the builder screen both show subjects → **terms** → chapters → lessons; the ERD is COURSES → CHAPTERS → LESSONS | `SCOPE §3.B`, `WF #s-curriculum` ("IG Physics — Term 1") vs `ERD:127-152` | Confirm term is folded into the course (one course per term) — likely, but state it explicitly in the docs |
+| ~~G14~~ | ✅ **RESOLVED.** Term is not an entity. `COURSES.title` is the builder header (typically "Term 1"); a second term is a second course | `WF #s-curriculum` | One course per term |
 | ~~G15~~ | ✅ **RESOLVED.** `meeting_provider` + `external_meeting_id` + webhook | `WF #s-session`, `#s-liveclass` | — |
 | ~~G16~~ | ✅ **RESOLVED.** `TEACHERS.curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH`); `COURSES.curriculum` is one track; subjects are a catalog (`SUBJECTS`) | `WF #s-signup`, `#s-phome` | Parent child cards concatenate course curriculum + `SUBJECTS.name` |
 

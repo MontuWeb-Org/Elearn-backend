@@ -5,7 +5,7 @@ Students never browse courses directly. They reach curriculum **through** a grou
 Only published lessons are visible. Drafts are invisible to students and parents alike.
 
 {% hint style="info" %}
-6 operations — **4 ready**, **1** awaiting a decision, **1 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+6 operations — **6 ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

@@ -2,10 +2,12 @@
 
 A lesson hangs off a **chapter**, not a course — `LESSONS.chapter_id` is the foreign key and the course is derived through it.
 
+New lessons start `DRAFT`. `POST .../publish` makes them visible on WF 20; `POST .../unpublish` hides them again. Materials inherit the lesson gate.
+
 Deleting a lesson cascades to its materials and recordings, but **never destroys attendance history**: `LIVE_SESSIONS.lesson_id` is `SET NULL`, so a class that covered the lesson survives with its attendance intact. `QUIZZES.lesson_id` behaves the same way. The delete does fail if any of the lesson's assignments has submissions.
 
 {% hint style="info" %}
-8 operations — **6 ready**, **2 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+8 operations — **all ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

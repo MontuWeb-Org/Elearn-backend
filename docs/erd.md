@@ -149,6 +149,7 @@ erDiagram
         uuid course_id PK
         uuid teacher_id FK
         uuid subject_id FK
+        string title
         string course_code UK
         enum curriculum "IGCSE, AMERICAN_DIPLOMA"
         string description
@@ -322,6 +323,7 @@ erDiagram
         timestamp opens_at
         timestamp closes_at
         int duration_seconds
+        int max_attempts "default 1"
         timestamp created_at
     }
 
@@ -340,6 +342,7 @@ erDiagram
         uuid attempt_id PK
         uuid quiz_id FK
         uuid student_id FK
+        int attempt_number
         uuid graded_by_user_id FK "nullable"
         timestamp started_at
         timestamp expires_at
@@ -456,7 +459,8 @@ Mermaid cannot express these; they are part of the schema contract.
 | `ASSIGNMENTS` | `UNIQUE (lesson_id, order_index)` | Deterministic homework ordering within a lesson |
 | `ASSIGNMENT_SUBMISSIONS` | `UNIQUE (assignment_id, student_id)` | One submission row per student — **re-submission overwrites in place** rather than versioning |
 | `QUIZ_QUESTIONS` | `UNIQUE (quiz_id, order_index)` | Deterministic question order for the WF 22 navigator |
-| `QUIZ_ATTEMPTS` | `UNIQUE (quiz_id, student_id)` | One attempt per student per quiz — **retakes are not modelled** |
+| `QUIZ_ATTEMPTS` | `UNIQUE (quiz_id, student_id, attempt_number)` | Retakes are numbered. `attempt_number` starts at 1 and increments per student per quiz |
+| `QUIZ_ATTEMPTS` | `UNIQUE (quiz_id, student_id) WHERE status = 'IN_PROGRESS'` | At most one open attempt at a time — start a new one only after the previous is submitted or auto-submitted |
 | `QUIZ_ANSWERS` | `UNIQUE (attempt_id, question_id)` | One answer row per question per attempt; autosave upserts against this |
 | `INVITES` | `UNIQUE (token_hash)` | The token is the credential; only the hash is stored |
 | `INVITES` | `UNIQUE (email, role, issued_by_user_id) WHERE accepted_at IS NULL AND revoked_at IS NULL` | Partial index — one *live* invite per address per role per issuer. Re-inviting the same person is an update, not a second row |
@@ -482,6 +486,7 @@ Mermaid cannot express these; they are part of the schema contract.
 - `PAYMENTS`: `amount > 0`
 - `QUIZZES`: `closes_at > opens_at`
 - `QUIZZES`: `duration_seconds > 0` when set; `NULL` means untimed
+- `QUIZZES`: `max_attempts >= 1` (default **1**)
 - `QUIZ_ATTEMPTS`: `expires_at > started_at`
 - `INVITES`: `role = 'PARENT'` ⇒ `linked_student_id IS NOT NULL`; `role IN ('ASSISTANT','STUDENT')` ⇒ `linked_student_id IS NULL`
 - `INVITES`: `expires_at > created_at`
@@ -580,6 +585,7 @@ COURSES (subject_id)
 | Relationship | Policy | Reason |
 |---|---|---|
 | `COURSES → CHAPTERS → LESSONS` | `CASCADE` | The curriculum spine falls together |
+| `COURSES → GROUPS` | `RESTRICT` | A course with sections is archived (`status = ARCHIVED`), not deleted |
 | `LESSONS → MATERIALS` | `CASCADE` | Files belong to the lesson |
 | `LESSONS → RECORDED_SESSIONS` | `CASCADE` | Videos belong to the lesson |
 | `LESSONS → LIVE_SESSIONS.lesson_id` | `SET NULL` | **Deleting a lesson must never destroy attendance history** |
@@ -631,7 +637,9 @@ COURSES (subject_id)
 - **`ASSIGNMENT_SUBMISSIONS` carries no score and no grader.** On-time-ness is the whole record. The three states WF 11 shows are derived, not stored: *Submitted* = a row with `is_late = false`, *Late* = a row with `is_late = true`, *Missing* = no row once `due_date` has passed.
 - **`is_late` is a stored boolean, not a status value.** It is computed once at submission time against `due_date` and never changes. Keeping it separate from any status enum is what lets a submission be both late and complete — the old `ASSESSMENT_SUBMISSIONS.status` could not express that.
 - **`QUIZZES.opens_at` / `closes_at` are the window; `duration_seconds` is the clock.** A quiz may be open for a week but allow 30 minutes once started. Either may bind first.
-- **`QUIZ_ATTEMPTS.expires_at` is materialized, not derived at read time.** It is set on start to `min(started_at + duration_seconds, quiz.closes_at)` so the countdown, the auto-submit and any late-answer rejection all read one authoritative value.
+- **`QUIZZES.max_attempts` defaults to 1** and is editable on create/patch. The default is one attempt per student; raising it allows retakes. A student may not start a new attempt while one is `IN_PROGRESS`, and may not exceed `max_attempts` (`409 ATTEMPT_LIMIT_REACHED`).
+- **`QUIZ_ATTEMPTS.expires_at` is materialized, not derived at read time.** It is set on start to `min(started_at + duration_seconds, quiz.closes_at)` so the countdown, the auto-submit and any late-answer rejection all read one authoritative value. **Decided:** when `expires_at` is reached the attempt is **auto-submitted** (same path as `POST .../submit`: MCQs scored, `status = SUBMITTED`). No grace period. The client should submit at zero; if it does not, the next student request or a worker runs submit.
+- **`QUIZ_ATTEMPTS.attempt_number`** is 1-based per student per quiz. Together with `max_attempts` it is what makes retakes changeable.
 - **`QUIZ_ATTEMPTS.auto_score` and `total_score` are deliberately separate.** `auto_score` is the MCQ subtotal, written at submit time and shown to the student immediately. `total_score` stays null until every structured answer has been graded. This is what makes "MCQ score shows immediately; overall grade stays pending" representable.
 - **`INVITES.token_hash`, never the token.** The raw token exists only inside the emailed link. This is the same treatment as `USER_SESSIONS.refresh_token_hash`: a database leak must not hand the reader a set of working invitations.
 - **Password-reset OTPs are cache, not a table.** `POST /auth/password/forgot` writes a hashed 6-digit code to cache keyed by user (TTL 10 minutes, 5 failed checks evict the key). `POST /auth/password/reset` takes `email` + `otp` + `password`. There is no `PASSWORD_RESET_OTPS` row. Always `202` on forgot so a missing account is not distinguishable from a sent code. A new request replaces the live cache entry.
@@ -643,18 +651,23 @@ COURSES (subject_id)
 - **`revoked_at` is a timestamp where `GROUP_ASSISTANTS.is_revoked` is a boolean, and that asymmetry is intentional.** An invite is a one-shot event whose lifecycle is a sequence of instants (created, expires, accepted or revoked). An assistant assignment is long-lived state that flips. Reading `accepted_at` beside `revoked_at` tells you the whole story of an invite in two columns.
 - **`GROUP_ASSISTANTS` carries both axes WF 13 shows.** *Scope* is which rows exist — one per group the TA may act on; "All sections" is N rows, not a wildcard. *Permissions* are the three booleans, matching the three checkboxes on **Edit after acceptance**: attendance, grading, homework-solution upload. They are not collected at invite time.
 - **`GROUP_ASSISTANTS.is_revoked` is why revocation is not a delete.** WF 13 requires removing a TA's access "without deleting grading history", and `QUIZ_ANSWERS.graded_by_user_id` points at that user. Flipping the flag ends access while every graded answer keeps its attribution.
-- **`QUIZ_ANSWERS.graded_by_user_id` is per answer, not per attempt.** `QUIZ_ATTEMPTS.graded_by_user_id` records who finalized the attempt; the per-answer field records who scored each individual item. They differ whenever two TAs split one student's paper, which a shared queue makes routine.
+- **`QUIZ_ANSWERS.graded_by_user_id` is per answer, not per attempt.** `QUIZ_ATTEMPTS.graded_by_user_id` records who finalized the attempt; the per-answer field records who scored each individual item.
 - **A null `graded_by_user_id` on a scored answer means the machine graded it.** MCQs are auto-scored at submit with no grader. Only `STRUCTURED` answers ever carry a human id.
-- **`claimed_by_user_id` / `claimed_at` live on `QUIZ_ANSWERS`.** They are a soft lease, not a lock: two TAs are not served the same essay. A claim is advisory and expires after a few minutes; nothing prevents grading an unclaimed or expired-claim answer.
-- **`LESSONS.status` is `DRAFT` or `PUBLISHED`.** Only published lessons are visible on WF 20. Materials and recordings inherit that gate.
+- **`claimed_by_user_id` / `claimed_at` live on `QUIZ_ANSWERS`.** They are a soft lease, not a lock: two graders are not served the same essay. A claim is advisory and expires after a few minutes; nothing prevents grading an unclaimed or expired-claim answer. `GET /grading/queue/next` takes the claim; `POST .../skip` releases it.
+- **Auto-finalize.** When the last structured answer on an attempt is graded, the attempt flips to `GRADED`, `total_score` is the sum of `points_awarded`, and `quiz.graded` fans out. `POST /attempts/{id}/finalize` remains an instructor override (idempotent if already `GRADED`; `409 ATTEMPT_INCOMPLETE` if any structured answer is still null).
+- **`LESSONS.status` is `DRAFT` or `PUBLISHED`.** New lessons start `DRAFT`. Only published lessons are visible on WF 20. Materials and recordings inherit that gate — a published file inside a draft lesson is **not** visible.
 - **`MATERIALS.access_mode`** is `VIEW_ONLY` or `DOWNLOADABLE`, set at upload (WF 08). `size_bytes` and `mime_type` back the list row.
-- **`SESSION_SERIES` is the recurrence parent.** Weekly sessions per section (WF 09) write one series plus materialized `LIVE_SESSIONS` rows. Editing "this session only" nulls that occurrence's `series_id`; "this and following" updates this and later siblings by `scheduled_start`.
-- **`LIVE_SESSIONS.meeting_provider` / `external_meeting_id`** back auto-generated Zoom/Meet links and join-log attendance (WF 10, 21). `join_opens_minutes_before` is the student "Join Now" window (WF 19).
-- **`ATTENDANCE.status` includes `PARTIAL`.** `joined_at` / `left_at` are set from the meeting join log or self-mark; leaving early can flip `PRESENT` to `PARTIAL`. `recorded_by_user_id` is the instructor/TA on a manual override, and null when the machine marked from the join log.
+- **`SESSION_SERIES` is the recurrence parent.** Weekly sessions per section (WF 09) write one series plus materialized `LIVE_SESSIONS` rows. Editing "this session only" nulls that occurrence's `series_id`. **"This and following"** updates this row and later siblings by `scheduled_start`, **except siblings that already have any `ATTENDANCE` row** — those are skipped (left unchanged) and listed in `skipped_session_ids`. Attendance history is never rewritten.
+- **`LIVE_SESSIONS.meeting_url` is a pasted link** (instructor copies Zoom/Meet into the form). The platform does **not** hold OAuth credentials, so it cannot create meetings or read a provider join log. `meeting_provider` / `external_meeting_id` exist for a later integration; they are unused while the URL is pasted. `join_opens_minutes_before` is the student "Join Now" window (WF 19).
+- **Cancelled sessions are dropped from attendance %.** Denominator is completed (non-`CANCELLED`) sessions only. `POST .../cancel` stays in the API even though WF 09 has no cancel control.
+- **Past-session roster** is recorded `ATTENDANCE` rows **union** current group members. A student who left still appears if they were marked; a student who joined later appears unmarked.
+- **`ATTENDANCE.status` includes `PARTIAL`.** `joined_at` / `left_at` are set from self-mark (and later from a provider join log, if connected). Leaving early can flip `PRESENT` to `PARTIAL`. A later manual `PATCH` wins and stamps `recorded_by_user_id`; machine marks leave it null.
 - **`NOTIFICATIONS.target_type` / `target_id`** are the deep-link (WF 17): session, quiz, fee, lesson.
 - **`ENROLLMENT_FEES` is student → instructor money**, one row per student per group per billing period. Distinct from `SUBSCRIPTIONS` (instructor → platform). `COURSES.fees` is the price tag that seeds `amount`. `PAYMENTS` clears the row to `PAID` and is what the parent writes on WF 18.
 - **`USERS.full_name` is the only name field.** WF 02 and WF 04 capture one "Full name" input; greetings and roster cells render that string. There is no `first_name` / `last_name` split and no separate `display_name`. `avatar_url` is the chrome photo (WF 06, 13, 14).
 - **`INVITES.full_name` is the name the issuer types** (WF 13 modal: name + email; student/parent names are pre-set because WF 05 setup asks only for a password). Acceptance copies it onto `USERS.full_name` unless the accept body sends a different `full_name` (the TA screen does; student and parent screens do not).
+- **`COURSES.title` is the builder header** (WF 07, e.g. "Term 1" or "IG Physics — Term 1"). **Term is not an entity.** A second term is a second course (same `subject_id`, different `title`). Parent child cards still concatenate `COURSES.curriculum` + `SUBJECTS.name` and do not use `title`.
+- **`COURSES.status`:** create as `DRAFT`. The instructor moves it to `ACTIVE` or `ARCHIVED` with `PATCH`. Archive is how a course is retired; `DELETE` is only for an empty draft (no groups).
 - **`SUBJECTS` is the platform catalog.** The frontend never hardcodes subject names. `GET /subjects?curriculum=` returns the active rows for a track, **already sorted**. `order_index` is storage-only and is not in the JSON. Signup and course-create pick from those ids. The same display name exists twice when it is offered on both tracks.
 - **`TEACHER_SUBJECTS` replaces the old `TEACHERS.subjects_taught` string.** WF 02 "Subject(s) taught" is a multi-select filtered by the curriculum chips (or unfiltered when the teacher chose `BOTH`).
 - **`TEACHERS.curriculum` is `IGCSE`, `AMERICAN_DIPLOMA`, or `BOTH` (WF 02).** **`COURSES.curriculum` is only `IGCSE` or `AMERICAN_DIPLOMA`** — a course is one track. `BOTH` on the teacher means they may create courses of either kind. Parent child cards (WF 17 "American Diploma Math") concatenate `COURSES.curriculum` + `SUBJECTS.name`.
@@ -720,9 +733,9 @@ These are consequences of the split, not objections to it. Each needs a decision
 
 `ASSIGNMENTS.due_date` stays on the curriculum branch. Every group taking the course shares it. Sections keep the same pace, so there is no `GROUP_ASSIGNMENTS` junction.
 
-### 2. WF 19 shows a grade on homework
+### 2. WF 19 shows a grade on homework — **decided: no score**
 
-The student dashboard renders "Recent grade — Homework 1.1 — 8/10". Assignments are no longer scored, so this number has nothing behind it. Either the wireframe drops it and shows a submitted/late chip instead, or `ASSIGNMENT_SUBMISSIONS` regains an optional score — which reopens the grading queue for homework and undoes part of the split.
+The student dashboard must **not** render "Homework 1.1 — 8/10". Assignments are never scored. Recent **grades** are quiz attempts only. Homework on that screen is a status chip: `SUBMITTED` / `LATE` / `MISSING`.
 
 ### 3. Nothing locks an assignment re-submission
 

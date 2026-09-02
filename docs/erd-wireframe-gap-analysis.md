@@ -14,16 +14,16 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~A4~~ | ✅ **CLOSED.** Invite issuance and activation — token, role, scope preview, expiry, acceptance | `WF 04 s-tainvite`, `05 s-familyinvite`, `13 s-isettings` | `INVITES` (`ERD:76-88`) stores the token hash, issuer, role and lifecycle; `INVITE_GROUPS` (`ERD:90-96`) stores the scope. Resolved |
 | A5 | Password reset — 6-digit OTP, expiry window, expired-code resend | `WF 03 s-forgot` | ✅ **CLOSED.** OTP lives in **cache** (hashed, TTL, attempt counter). No table, no reset-link token |
 | ~~A6~~ | ✅ **CLOSED.** `GROUP_ASSISTANTS` now carries scope (rows) + `can_take_attendance` / `can_grade` / `can_upload_solutions` + `is_revoked`. Permissions are granted **after invite acceptance** (WF 13 Edit), not copied from `INVITE_GROUPS` —  TA permission model — per-section scope ("All sections" / "Section A only") **and** per-action permissions (attendance / grading / homework upload), editable, revocable without deleting grading history | `WF 13 s-isettings`, `04 s-tainvite` | `GROUP_ASSISTANTS` is a bare composite-PK join with no permission or scope columns (`ERD:209-217`) |
-| A7 | Lesson `Published` / `Draft` state gating student and parent visibility | `WF 07 s-curriculum`, `20 s-lesson` | `LESSONS` has no status field (`ERD:146-152`); status exists only on `COURSES` (`ERD:127-136`) |
+| ~~A7~~ | ✅ **CLOSED.** `LESSONS.status` `DRAFT` / `PUBLISHED`. Materials inherit the lesson gate | `WF 07 s-curriculum`, `20 s-lesson` | Resolved |
 | A8 | Per-file access mode — view-only vs downloadable, set at upload | `WF 08 s-content` | `MATERIALS` has title / file_url / uploaded_at only (`ERD:168-174`) |
 | A9 | File metadata shown in the materials list — size ("1.2 MB"), file type icon | `WF 08 s-content` | No size or MIME on `MATERIALS` |
 | A10 | Engagement tracking — "opening a file logs a viewed state"; per-lesson `Done` / `In progress` | `WF 20 s-lesson`, `11 s-roster` | **Dropped.** No `MATERIAL_VIEWS` / `RECORDED_SESSION_VIEWS`. Out of schema |
 | ~~A11~~ | ✅ **CLOSED.** `QUIZZES.duration_seconds` + `QUIZ_ATTEMPTS.expires_at` —  Quiz countdown timer ("⏱ 08:42 remaining") | `WF 22 s-quiz` | `ASSESSMENTS` has no duration/time-limit field (`ERD:247-257`) |
 | ~~A12~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS` with `status = IN_PROGRESS` —  In-progress quiz attempt — question navigator, jumping between answered/unanswered, state before final submit | `WF 22 s-quiz` | `ASSESSMENT_SUBMISSIONS` models only a completed submission (`submitted_at`, no start/attempt state) (`ERD:270-283`) |
-| A13 | Recurring sessions set weekly per section; editing one occurrence prompts "this session only" vs "this and following" | `WF 09 s-calendar` | `LIVE_SESSIONS` rows are independent; `GROUPS.schedule_info` is a free-text hint explicitly described as a default, not truth (`ERD:200-207`, `ERD:497-529`) |
-| A14 | Video-conferencing integration — auto-generate a Zoom/Meet link "if connected", read the tool's join log, embed the session in-app | `WF 09 s-calendar`, `10 s-session`, `21 s-liveclass` | Only `LIVE_SESSIONS.meeting_url`, a plain nullable string (`ERD:224-236`). No provider, credential, or external-meeting-id representation |
-| A15 | Join window — "Join Now only activates within the join window of a scheduled session; otherwise shows countdown" | `WF 19 s-shome` | No join-window or early-join field |
-| A16 | Partial attendance — "leaving early can flag partial attendance" | `WF 21 s-liveclass` | `ATTENDANCE.status` is `PRESENT, ABSENT, LATE` with no partial value and no join/leave timestamps (`ERD:238-244`) |
+| ~~A13~~ | ✅ **CLOSED.** `SESSION_SERIES` + `PATCH scope=this\|this_and_following`; skip later rows with attendance | `WF 09 s-calendar` | |
+| ~~A14~~ | ✅ **CLOSED for v1 as pasted URL.** Fields `meeting_provider` / `external_meeting_id` exist; **no OAuth credentials**. Webhook unused until connected | `WF 09`, `10`, `21` | |
+| ~~A15~~ | ✅ **CLOSED.** `join_opens_minutes_before` | `WF 19 s-shome` | |
+| ~~A16~~ | ✅ **CLOSED.** `PARTIAL` + `joined_at` / `left_at` | `WF 21 s-liveclass` | |
 | ~~A17~~ | ✅ **CLOSED.** `ASSIGNMENT_SUBMISSIONS.is_late` is a boolean, independent of any status —  Late flag that persists next to a grade and stays visible to instructor and parent | `WF 23 s-homework`, `11 s-roster`, `18 s-pchild` | `LATE` is one value in the same enum as `GRADED` on `ASSESSMENT_SUBMISSIONS` (`ERD:270-283`) |
 | ~~A18~~ | ✅ **CLOSED** for the re-submission half — `UNIQUE (assignment_id, student_id)`, overwrite in place. The *lock trigger* is still open (`ERD` Open Question 3) —  Re-submission until graded; grading locks the submission | `WF 23 s-homework` | No attempt/version or lock representation |
 | ~~A19~~ | ✅ **CLOSED.** `ASSIGNMENTS.solution_file_url` + `solution_released_at` —  "Upload homework solutions" by the TA — solution files attached to an assessment | `WF 15 s-grading` | `ASSESSMENTS` has no attachment or solution field (`ERD:247-257`) |
@@ -84,9 +84,9 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | C11 | File size ("1.2 MB") and type | `WF 08 s-content` | Not stored (A9) |
 | ~~C12~~ | ✅ **CLOSED.** `COURSES.curriculum` + `SUBJECTS.name` | `WF 17 s-phome` | Parent child card label |
 | C13 | A single "Section" per student row | `WF 11 s-roster`, `12 s-fees` | `STUDENT_GROUPS` is many-to-many, so a student may map to several groups; the UI assumes one |
-| C14 | The roster for a past session ("Attendance (24)") | `WF 10 s-session` | Group membership is current-state only; a past session's roster would be reconstructed from present membership, which drifts as students join or leave |
+| ~~C14~~ | ✅ **LOCKED.** Roster = recorded `ATTENDANCE` ∪ current members | `WF 10 s-session` | Past session roster |
 | C15 | TA's "Today's sessions to cover" | `WF 14 s-tadash` | `GROUP_ASSISTANTS` assigns a TA to a group, not to a session; "to cover" implies a per-session assignment that does not exist |
-| C16 | Attendance % and average grade per student | `WF 11 s-roster`, `17 s-phome`, `18 s-pchild` | Computable in principle, but the denominator is undefined — see D5, D15 |
+| ~~C16~~ | ✅ **CLOSED.** Denominator excludes `CANCELLED` (D15) | `WF 11 s-roster`, `17 s-phome`, `18 s-pchild` | Attendance % |
 | C17 | "Needs grading — 24 pending" across all sections | `WF 06 s-idash`, `14 s-tadash` | Computable only once "pending" is defined (see D18) |
 | ~~C18~~ | ✅ **CLOSED.** `NOTIFICATIONS.target_type` / `target_id` | `WF 17 s-phome` | Deep-link |
 | C19 | Currency on any monetary figure | `WF 12 s-fees`, `02 s-signup` | No currency field on `COURSES.fees` or `SUBSCRIPTION_PLANS.price` |
@@ -97,12 +97,12 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 
 | # | Ambiguity | Evidence |
 |---|---|---|
-| D1 | A quiz is authored **inside a lesson** in the Content & Assessment Hub, but `ASSESSMENTS.group_id` is mandatory and no screen asks which group(s) the quiz is for. Whether publishing fans out one assessment per group, or creates a single shared one, is undefined | `WF 08 s-content` vs `ERD:247-257` |
-| D2 | Relationship between lesson `Published`/`Draft` and per-item publishing ("Publishing from any tab here instantly reflects…") — whether a published material inside a draft lesson is visible | `WF 07 s-curriculum`, `08 s-content` |
+| ~~D1~~ | ✅ **CLOSED.** Quizzes stay group-scoped; WF 08 still POSTs `/groups/{id}/quizzes` once per section | `WF 08 s-content` | |
+| ~~D2~~ | ✅ **CLOSED.** Publish gating is the lesson. A published material inside a draft lesson is **not** visible | `WF 07 s-curriculum`, `08 s-content` | Resolved |
 | D3 | "Section" vs "Group" vs course: is "IG Physics — Revision" a third group of the IG Physics course, or a separate course? It appears both as a section filter chip and as a class in the calendar | `WF 06 s-idash`, `09 s-calendar`, `11 s-roster`, `14 s-tadash` |
 | D4 | Whether a student may belong to more than one group of the same course | `ERD:219-222` allows it; `WF 11 s-roster` shows one section per student |
-| D5 | Auto-marked vs manually overridden attendance — which wins, when reconciliation happens, and who recorded a value (`ATTENDANCE` has no `recorded_by`) | `WF 10 s-session`, `21 s-liveclass` vs `ERD:238-244` |
-| D6 | What "partial attendance" resolves to when a student leaves early | `WF 21 s-liveclass` |
+| ~~D5~~ | ✅ **CLOSED.** Manual `PATCH` wins; stamps `recorded_by_user_id`. Machine marks leave it null | `WF 10 s-session`, `21 s-liveclass` | |
+| ~~D6~~ | ✅ **CLOSED.** Leaving early may set `PARTIAL` | `WF 21 s-liveclass` | |
 | D7 | Re-submission semantics: a new row per attempt or an overwrite; whether lateness is re-evaluated on each attempt | `WF 23 s-homework` |
 | ~~D8~~ | ✅ **CLOSED.** Lateness is a boolean on assignments; quizzes have a window, not a late state —  A submission can be both late and graded, but `LATE` and `GRADED` are values of the same enum | `WF 23 s-homework` vs `ERD:270-283` |
 | D9 | Who may regrade after a TA grades, and whether grading is reversible — `graded_by_user_id` is a single field, and grading "locks" the submission | `WF 15 s-grading`, `23 s-homework` |
@@ -110,10 +110,10 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | D11 | Whether a TA may serve more than one instructor, and whether the grading queue can span instructors | `WF 14 s-tadash`, `15 s-grading` |
 | D12 | Parent linking is "auto-approved for the instructor's classes, no manual matching" — the approval semantics, and whether a parent sees only that instructor's classes or everything about the child. **Still open:** `PARENT_STUDENTS` has no status column by design (auto-approved), so the instructor-visibility boundary must be applied at query time | `WF 05 s-familyinvite`, `ERD:429-435` |
 | D13 | One parent linked to children across multiple instructors — what isolation, if any, exists between instructors' data. **Still open:** the link is deliberately not instructor-scoped (`ERD:497-529`), so isolation is entirely a query-time concern | `WF 01 s-login`, `05 s-familyinvite`, `17 s-phome`, `ERD:429-435` |
-| D14 | Editing a recurring session with "this and following" when attendance has already been recorded on later occurrences | `WF 09 s-calendar` |
-| D15 | Whether cancelled sessions count toward attendance percentages, and whether cancellation notifies students and parents | `ERD:224-236` (`CANCELLED` exists) vs `WF 09 s-calendar` (no cancel UI) |
+| ~~D14~~ | ✅ **CLOSED.** `this_and_following` skips later rows that already have attendance; lists `skipped_session_ids` | `WF 09 s-calendar` |
+| ~~D15~~ | ✅ **CLOSED.** Cancelled sessions are **dropped** from the attendance denominator. `/cancel` stays with no screen | `ERD` `CANCELLED` vs `WF 09` |
 | D16 | Whether sessions with no lesson (revision, exam prep, Q&A) appear anywhere in the student's lesson view or count toward progress | `ERD:497-529`, `WF 09 s-calendar`, `20 s-lesson` |
-| D17 | Quiz timer expiry — auto-submit, lock, or grace | `WF 22 s-quiz` |
+| ~~D17~~ | ✅ **CLOSED.** Timer expiry **auto-submits** | `WF 22 s-quiz` |
 | ~~D18~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS.status = IN_PROGRESS / SUBMITTED / GRADED`; "pending" = `SUBMITTED` —  Status of a mixed MCQ/structured submission between auto-grading and human grading, and what "pending" counts in the dashboard badge | `WF 15 s-grading`, `22 s-quiz`, `06 s-idash` |
 | D19 | Fee cadence: the fees table has a per-student "Plan: Monthly" column while `COURSES.fees` is a single decimal — whether fees are per course, per group, per month, or per student | `WF 12 s-fees` vs `ERD:127-136` |
 | ~~D20~~ | ✅ **CLOSED.** `SUBSCRIPTION_PLANS.max_ta_seats` | `WF 02 s-signup` vs `ERD` | TAs consume seats |
@@ -121,8 +121,8 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | D22 | Notification delivery channel — in-app only, or email/push, given the parent tier is framed as a mobile app and "Send reminder" implies outbound contact | `WF 12 s-fees`, `17 s-phome` |
 | D23 | The mechanism behind "instantly" / "in real time" (polling, SSE, WebSocket) is asserted on six flows but never specified | `SCOPE §3.C`; `WF 08, 09, 10, 15, 16, 17, 18` |
 | D24 | Timezone handling — whose timezone a session time renders in for students and parents | `WF 09 s-calendar`, `17 s-phome`, `19 s-shome` |
-| D25 | Whether the instructor's Session View and the TA's Attendance screen are the same capability with identical rights ("same attendance component") or differ in what can be overridden | `WF 10 s-session` vs `16 s-attendance` |
-| D26 | Deletion vs archival: no screen offers deleting a course, group, or student, while the ERD defines `RESTRICT` on groups and `CASCADE` down the curriculum | `ERD:465-496` |
+| ~~D25~~ | ✅ **CLOSED.** Instructor Session View and TA Attendance use the **same** attendance API | `WF 10 s-session` vs `16 s-attendance` |
+| D26 | Deletion vs archival for **groups and students** (courses: **decided** — `PATCH ARCHIVED`; `DELETE` only empty drafts) | `ERD` delete table |
 | D27 | Multi-role users (`USER_ROLES` is M:N) versus a login that routes to exactly one home screen | `ERD:36-39` vs `WF 01 s-login` |
 | D28 | Whether a student is enrolled in a *course* or only in a *group*, and whether course-level enrollment without a group is possible | `ERD:219-222` |
 | ~~D29~~ | ✅ **CLOSED.** This is exactly what the split fixes — `ASSIGNMENTS` and `QUIZZES` are separate entities on separate branches —  "Homework" appears as its own tab and nav item, distinct from quizzes, while the ERD models both as `ASSESSMENTS.type` | `WF 08 s-content`, `19 s-shome` vs `ERD:247-257` |
@@ -130,10 +130,10 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | D31 | Revoking a TA "immediately removes access without deleting grading history" — the state of a revoked assistant row and of in-flight grading | `WF 13 s-isettings` vs `ERD:209-217` |
 | ~~D32~~ | ✅ **CLOSED.** Teacher `curriculum` may be `BOTH`; each `COURSES.curriculum` is one track (`IGCSE` or `AMERICAN_DIPLOMA`) | `WF 02 s-signup` | Resolved |
 | D34 | **New, introduced by the assignment/quiz split.** `ASSIGNMENTS.due_date` is one absolute timestamp on a cohort-independent row, so every section shares it — but sections move at different speeds. See `ERD` Open Question 1 | `WF 11 s-roster`, `23 s-homework` vs `ERD:176-187` |
-| D35 | **New.** WF 19 renders "Recent grade — Homework 1.1 — 8/10", but assignments are no longer scored. Either the wireframe drops the number or `ASSIGNMENT_SUBMISSIONS` regains an optional score | `WF 19 s-shome` vs `ERD:189-197` |
+| ~~D35~~ | ✅ **CLOSED.** WF 19 homework is a status chip, never a score. Recent grades are quizzes only | `WF 19 s-shome` vs `ERD` assignments |
 | D36 | **New.** Nothing locks an assignment re-submission now that there is no grading step. `solution_released_at` is the recommended trigger | `WF 23 s-homework` vs `ERD:176-187` |
-| D37 | **New.** `GROUP_ASSISTANTS` stores "All sections" as N rows, so a TA does **not** inherit access to groups created later. If the instructor expects inheritance, a wildcard or course-level grant is needed instead | `WF 13 s-isettings` vs `ERD:209-217` |
-| D38 | **New.** Whether the last per-answer grade auto-finalizes an attempt, or finalize stays an explicit second step, is undecided — it changes whether the student/parent fan-out has one trigger or two | `WF 15 s-grading` vs `ERD:270-283` |
+| ~~D37~~ | ✅ **CLOSED** with D10 — N rows, no auto-inclusion of later groups | `WF 13 s-isettings` |
+| ~~D38~~ | ✅ **CLOSED.** Auto-finalize on last structured grade; `POST .../finalize` is instructor override | `WF 15 s-grading` |
 | ~~D39~~ | ✅ **CLOSED.** Token-only accept; password creates or verifies the account | `WF 04 s-tainvite`, `05 s-familyinvite` | Resolved |
 | ~~D40~~ | ✅ **CLOSED.** Issuer, or an instructor of the linked child, may rescind. `revoked_by_user_id` records who | `WF 05 s-familyinvite`, `13 s-isettings` | Resolved |
 | D41 | **New.** `GROUPS → INVITE_GROUPS` is `CASCADE`, so archiving a section silently narrows any unaccepted invite scoped to it — possibly to nothing. Whether that should invalidate the invite instead is a policy question | `ERD:90-96`, `ERD:465-496` |
@@ -168,7 +168,7 @@ Each of these must be adopted (or replaced by a decision) before endpoints can b
 16. Authentication is an access token plus a refresh token stored as `USER_SESSIONS.refresh_token_hash`; "Remember me" affects refresh lifetime only.
 17. A user has exactly one role for routing purposes even though `USER_ROLES` is many-to-many.
 18. Files are stored externally and the ERD holds URLs only; upload transport is a separate concern from the resource APIs.
-19. Meeting links are opaque URLs — the platform does not hold provider credentials, so auto-generated links and join-log-driven attendance are out of scope until an integration is modeled.
+19. Meeting links are **pasted URLs**. The platform does not hold provider credentials in v1; auto-generated links and join-log attendance wait on a later OAuth integration. The webhook endpoint is specified but unused.
 20. Notifications are in-app persisted records; email/push delivery is out of scope.
 21. All timestamps are stored UTC and rendered per viewer.
 22. A single implied currency is used everywhere.

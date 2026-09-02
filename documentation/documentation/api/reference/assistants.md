@@ -8,7 +8,7 @@ Teaching assistants hold delegated, scoped access. Two independent axes control 
 **Revoking a TA is never a row delete.** Grading history points at the user, so revocation sets `is_revoked` — access ends immediately while every grade they gave keeps its attribution.
 
 {% hint style="info" %}
-7 operations — **6 ready**, **1** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+7 operations — **7 ready**, **0** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

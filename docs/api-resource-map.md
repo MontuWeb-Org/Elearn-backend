@@ -239,13 +239,12 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/courses` | Instructor's courses. Filters: `status`, `grade_level` | `I` `A` | `own-course` / `assigned-group` | 06, 07 | ✅ |
-| POST | `/courses` | Create course (`subject_id` from `GET /subjects`) | `I` | `self` | 02, 07 | ✅ |
-| GET | `/courses/{courseId}` | Course header — WF 07's "IG Physics — Term 1" | `I` `A` | `own-course` | 07 | ✅ |
-| PATCH | `/courses/{courseId}` | Change `subject_id` / `curriculum` (must match), description, `status` | `I` | `own-course` | 07 | ✅ |
-| DELETE | `/courses/{courseId}` | Cascades the curriculum spine (`ERD:465-496`) | `I` | `own-course` | — | ⚠️ |
-| GET | `/courses/{courseId}/tree` | **The builder read.** Chapters + lessons + counts + publish state in one call | `I` `A` | `own-course` | 07 | ✅ |
+| POST | `/courses` | Create course (`title`, `subject_id` from `GET /subjects`, `curriculum`) | `I` | `self` | 02, 07 | ✅ |
+| GET | `/courses/{courseId}` | Course header — `{subject_name} — {title}` | `I` `A` | `own-course` | 07 | ✅ |
+| PATCH | `/courses/{courseId}` | `title`, `subject_id` / `curriculum`, description, `status` (archive here) | `I` | `own-course` | 07 | ✅ |
+| DELETE | `/courses/{courseId}` | Empty `DRAFT` only. Live courses are `ARCHIVED` | `I` | `own-course` | — | ✅ |
 
-**Notes.** `DELETE` is ⚠️ — no screen offers it and `GAP D26` flags deletion-vs-archival as undecided. Document it as existing but note that the UI exposes no path to it. `/tree` includes `LESSONS.status`. `subject_name` on course reads is a join of `SUBJECTS.name`; writes take `subject_id` only.
+**Notes.** `DELETE` is only for an empty draft (no groups) — `409 GROUP_HAS_HISTORY` otherwise. The UI retires a course with `PATCH` `ARCHIVED`. Builder page-load is `GET /courses/{id}/chapters?include=lessons` (no `/tree`). `subject_name` on course reads is a join of `SUBJECTS.name`; writes take `subject_id` only. `title` is the WF 07 header (typically the term).
 
 ### 5.5 Curriculum: chapters — R6
 
@@ -255,7 +254,7 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | POST | `/courses/{courseId}/chapters` | "+ Add Chapter". `order_index` appends if omitted | `I` | `own-course` | 07 | ✅ |
 | GET | `/chapters/{chapterId}` | Single chapter | `I` `A` | `own-course` | 07 | ✅ |
 | PATCH | `/chapters/{chapterId}` | "Edit" — title, description | `I` | `own-course` | 07 | ✅ |
-| DELETE | `/chapters/{chapterId}` | Cascades to lessons, materials, recordings | `I` | `own-course` | 07 | ✅ |
+| DELETE | `/chapters/{chapterId}` | Cascades; `409 HAS_STUDENT_WORK` if nested homework has submissions | `I` | `own-course` | 07 | ✅ |
 | PUT | `/courses/{courseId}/chapters/order` | **Bulk reorder** — body is the full ordered `chapter_id` array. One request per drag-drop | `I` | `own-course` | 07 | ✅ |
 
 **Notes.** `UNIQUE (course_id, order_index)` (`ERD:364-383`) means naive per-item reorder produces transient collisions. The bulk `PUT` reassigns the whole sequence in one transaction — this is why reorder is not a `PATCH` on the item.
@@ -304,7 +303,7 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | POST | `/groups/{groupId}/archive` | **Archive, not delete** — `GROUPS → LIVE_SESSIONS` is `RESTRICT` | `I` | `own-course` | — | ⚠️ |
 | GET | `/groups/{groupId}/students` | Section roster | `I` `A` | `assigned-group` | 10, 11, 16 | ✅ |
 | POST | `/groups/{groupId}/students` | Enroll (bulk: accepts an array) | `I` | `own-course` | 11 | ✅ |
-| DELETE | `/groups/{groupId}/students/{studentId}` | Unenroll | `I` | `own-course` | 11 | ⚠️ |
+| DELETE | `/groups/{groupId}/students/{studentId}` | Unenroll | `I` | `own-course` | 11 | ✅ |
 | GET | `/assistants` | TA list with scope + permissions — the WF 13 table | `I` | `own-course` | 13 | ✅ |
 | GET | `/assistants/{userId}` | One TA's groups and flags | `I` | `own-course` | 13 | ✅ |
 | PATCH | `/assistants/{userId}` | "Edit" — replace the group set and the three flags in one call | `I` | `own-course` | 13 | ✅ |
@@ -312,7 +311,7 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 
 **Notes.** WF 13's two axes both land on `GROUP_ASSISTANTS`: *scope* is which rows exist (chosen at invite), *permissions* are `can_take_attendance` / `can_grade` / `can_upload_solutions`, set **once with Edit after the TA accepts**. "Attendance only" (Omar S.) is one row with one flag set. A newly accepted TA shows "Not set" until that Edit.
 
-**"All sections" is stored as N rows, not a wildcard** — so it does **not** auto-include groups created later (`GAP D10`). That is a deliberate reading, and the cheaper one; if the instructor expects a new section to inherit existing TA access, this needs a wildcard row or a course-level grant instead. Worth confirming before screen 13 is written.
+**"All sections" is stored as N rows, not a wildcard** — so it does **not** auto-include groups created later. Confirmed (D10): the instructor Edits again when a new section is created.
 
 Revocation is `is_revoked = true`, never a row delete, because `QUIZ_ANSWERS.graded_by_user_id` and `QUIZ_ATTEMPTS.graded_by_user_id` point at that user — `USERS → GROUP_ASSISTANTS` is `RESTRICT` for the same reason (`GAP D31`).
 
@@ -325,30 +324,30 @@ Revocation is `is_revoked = true`, never a row delete, because `QUIZ_ANSWERS.gra
 | GET | `/live-sessions` | **The timetable query.** Filters: `from`, `to`, `group_id`, `course_id`, `mode`, `status`. Mirrors index `LIVE_SESSIONS (group_id, scheduled_start)` | `I` `A` `S` `P` | role-shaped | 09, 06, 14, 19, 18 | ✅ |
 | POST | `/live-sessions` | "+ New Session" — one-off, or a `recurrence` block that creates a `SESSION_SERIES` and materializes occurrences | `I` | `own-course` | 09 | ✅ |
 | GET | `/live-sessions/{sessionId}` | Session detail for the Class Session View | `I` `A` | `assigned-group` | 10, 16, 21 | ✅ |
-| PATCH | `/live-sessions/{sessionId}` | Edit time, room, mode, linked lesson. Query `scope=this` (detach from series) or `scope=this_and_following` | `I` | `own-course` | 09 | ⚠️ |
-| POST | `/live-sessions/{sessionId}/cancel` | Set `status = CANCELLED` | `I` | `own-course` | — | ⚠️ |
-| GET | `/live-sessions/{sessionId}/join` | Returns the embed target plus whether the join window is open (`join_opens_minutes_before`) | `S` | `own-enrollment` | 19, 21 | ✅ |
-| POST | `/webhooks/meetings/{provider}` | Ingest a provider join log for auto-attendance (`external_meeting_id`) | `—` | signature | 10, 21 | ✅ |
+| PATCH | `/live-sessions/{sessionId}` | Edit time, room, mode, linked lesson. Query `scope=this` (detach from series) or `scope=this_and_following` | `I` | `own-course` | 09 | ✅ |
+| POST | `/live-sessions/{sessionId}/cancel` | Set `status = CANCELLED`. Kept with no screen. Cancelled sessions drop out of attendance % | `I` | `own-course` | — | ✅ |
+| GET | `/live-sessions/{sessionId}/join` | Returns the pasted `meeting_url` plus whether the join window is open (`join_opens_minutes_before`) | `S` | `own-enrollment` | 19, 21 | ✅ |
+| POST | `/webhooks/meetings/{provider}` | Ingest a provider join log for auto-attendance. **Unused in v1** — no OAuth credentials | `—` | signature | 10, 21 | ⚠️ |
 
-**Notes — recurrence.** Weekly sessions per section write a `SESSION_SERIES` parent and materialized `LIVE_SESSIONS` rows. `PATCH` takes `scope=this` (nulls `series_id` on that occurrence) or `scope=this_and_following` (updates this and later siblings by `scheduled_start`). `PATCH` stays ⚠️ on `GAP D14`: editing "this and following" when later occurrences already have attendance.
+**Notes — recurrence.** Weekly sessions per section write a `SESSION_SERIES` parent and materialized `LIVE_SESSIONS` rows. `PATCH` takes `scope=this` (nulls `series_id` on that occurrence) or `scope=this_and_following` (updates this and later siblings by `scheduled_start`, **skipping any sibling that already has attendance**).
 
 `POST /live-sessions` also carries two CHECK constraints as `422`s: `mode=ONLINE ⇒ meeting_url` required, `mode=ONSITE ⇒ classroom_location` required, plus `scheduled_end > scheduled_start`. And the cross-branch invariant: if `lesson_id` is set, the lesson's course must equal the group's course.
 
-`/cancel` is ⚠️ — the enum value exists but no screen offers the action, and whether a cancelled session leaves the attendance denominator is undecided (`GAP D15`, `E15`).
+**Pasted URL, not OAuth.** `meeting_url` is copied in by the instructor. The platform does not hold Zoom/Meet credentials, so it cannot mint links or read a join log. `meeting_provider` / `external_meeting_id` wait for a later integration. `/cancel` stays even though WF 09 has no cancel control. Cancelled sessions are **excluded from the attendance denominator**.
 
 ### 5.10 Attendance — R14
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
-| GET | `/live-sessions/{sessionId}/attendance` | The checkable roster — one row per enrolled student, with any recorded status | `I` `A` | `assigned-group`+attendance | 10, 16 | ⚠️ |
+| GET | `/live-sessions/{sessionId}/attendance` | The checkable roster — union of recorded rows and current members. Same API for WF 10 and WF 16 | `I` `A` | `assigned-group`+attendance | 10, 16 | ✅ |
 | PUT | `/live-sessions/{sessionId}/attendance` | **Bulk save.** Body is the full status array — this is both "Mark all present" and "Save Attendance" | `I` `A` | `assigned-group`+attendance | 10, 16 | ✅ |
 | PATCH | `/attendance/{attendanceId}` | Single-student override | `I` `A` | `assigned-group`+attendance | 10 | ✅ |
 | POST | `/live-sessions/{sessionId}/end` | "End Session & Save Attendance" — commits attendance, sets `status = COMPLETED`, **fires the parent-badge fan-out** | `I` `A` | `assigned-group`+attendance | 10 | ✅ |
 | POST | `/live-sessions/{sessionId}/attendance/self` | Auto-mark on join from the Live Class screen | `S` | `own-enrollment` | 21 | ✅ |
 
-**Notes.** `GET .../attendance` is ⚠️ for a subtle reason worth writing into the doc: group membership is current-state only (`GAP E7`, `C14`). Re-opening a past session reconstructs its roster from *today's* membership, so a student who left the section disappears from a session they attended. The response should therefore be built from recorded `ATTENDANCE` rows **unioned with** current membership, not from membership alone.
+**Notes.** `GET .../attendance` is recorded `ATTENDANCE` rows **unioned with** current membership (C14). A student who left still appears if they were marked.
 
-`POST .../attendance/self` writes `PRESENT` with `joined_at` and `recorded_by_user_id` null (machine). Leaving early sets `left_at` and may flip status to `PARTIAL`. A later manual `PATCH` wins and stamps `recorded_by_user_id`.
+`POST .../attendance/self` writes `PRESENT` with `joined_at` and `recorded_by_user_id` null (machine). Leaving early sets `left_at` and may flip status to `PARTIAL`. A later manual `PATCH` wins and stamps `recorded_by_user_id`. Instructor Session View and TA Attendance are the **same endpoints** (D25). Cancelled sessions are not in the attendance-percentage denominator.
 
 ### 5.11 Assignments — R15a ✅
 
@@ -381,9 +380,9 @@ Quizzes live on the **cohort branch**: issued to one group, with an open/close w
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/quizzes` | Filters: `group_id`, `lesson_id`, `closes_before`, `status`. Mirrors index `QUIZZES (group_id, closes_at)` | `I` `A` `S` | role-shaped | 06, 14, 19 | ✅ |
-| POST | `/groups/{groupId}/quizzes` | Create — `opens_at`, `closes_at`, optional `duration_seconds`, `max_score`, optional `lesson_id` tag | `I` | `own-course` | 08 | ⚠️ |
+| POST | `/groups/{groupId}/quizzes` | Create — `opens_at`, `closes_at`, optional `duration_seconds`, `max_attempts` (default 1), `max_score`, optional `lesson_id` tag | `I` | `own-course` | 08 | ✅ |
 | GET | `/quizzes/{quizId}` | Detail with questions, for the builder | `I` `A` | `own-course` | 08, 15 | ✅ |
-| PATCH | `/quizzes/{quizId}` | Edit window, duration, title | `I` | `own-course` | 08 | ⚠️ |
+| PATCH | `/quizzes/{quizId}` | Edit window, duration, title, `max_attempts` | `I` | `own-course` | 08 | ✅ |
 | DELETE | `/quizzes/{quizId}` | **`409` once attempts exist** | `I` | `own-course` | 08 | ✅ |
 | GET | `/quizzes/{quizId}/questions` | Question list in `order_index` order | `I` `A` | `own-course` | 08 | ✅ |
 | POST | `/quizzes/{quizId}/questions` | "+ Add Question" — `MCQ` carries `options` + `model_answer`; `STRUCTURED` carries `model_answer` only | `I` | `own-course` | 08 | ✅ |
@@ -391,7 +390,7 @@ Quizzes live on the **cohort branch**: issued to one group, with an open/close w
 | DELETE | `/questions/{questionId}` | Remove | `I` | `own-course` | 08 | ✅ |
 | PUT | `/quizzes/{quizId}/questions/order` | Bulk reorder — drives the WF 22 navigator | `I` | `own-course` | 08 | ✅ |
 
-**Notes.** `POST`/`PATCH` are ⚠️ on `GAP D1`, now narrowed to quizzes alone: a quiz is authored **inside a lesson** on WF 08 but is group-scoped by design, and no screen asks which section. The path here makes the group explicit (`/groups/{groupId}/quizzes`); authoring one quiz for three sections is three calls, or one call with `group_ids[]` that fans out. Assignments no longer carry this ambiguity — they are natively lesson-scoped, which is half of `D1` closed by the split.
+**Notes.** Quizzes stay group-scoped. Authoring from a lesson on WF 08 still POSTs `/groups/{groupId}/quizzes` once per section (D1). Assignments are natively lesson-scoped.
 
 Two CHECK constraints surface as `422`: `closes_at > opens_at`, and `duration_seconds > 0` when set (null = untimed). One cross-branch invariant: `lesson_id`, when set, must belong to the group's course.
 
@@ -404,32 +403,32 @@ Student-side. The attempt is the in-flight quiz — what WF 22's countdown and n
 | POST | `/quizzes/{quizId}/attempts` | Start. Sets `started_at` and materializes `expires_at` = `min(started_at + duration, closes_at)`. Returns questions | `S` | `own-enrollment` | 22 | ✅ |
 | GET | `/attempts/{attemptId}` | Resume — answers so far, seconds remaining, per-question answered flags for the navigator | `S` | `self` | 22 | ✅ |
 | PATCH | `/attempts/{attemptId}/answers` | Autosave. Upserts against `UNIQUE (attempt_id, question_id)`. `409 ATTEMPT_EXPIRED` past `expires_at` | `S` | `self` | 22 | ✅ |
-| POST | `/attempts/{attemptId}/submit` | Finalize. Auto-scores MCQs into `auto_score`, sets `status = SUBMITTED` | `S` | `self` | 22 | ⚠️ |
+| POST | `/attempts/{attemptId}/submit` | Finalize. Auto-scores MCQs into `auto_score`, sets `status = SUBMITTED`. Timer expiry **auto-submits** | `S` | `self` | 22 | ✅ |
 | GET | `/attempts/{attemptId}/result` | Student's view after submit: `auto_score` now, `total_score` when grading completes | `S` | `self` | 22 | ✅ |
 
-**Notes.** `POST .../submit` stays ⚠️ on `GAP D17` — what timer expiry does: auto-submit, hard lock, or grace period. The schema supports all three.
+**Notes.** Timer expiry **auto-submits** (D17) — no grace. The client should POST submit at zero; if it does not, the next student request or a worker runs the same path.
 
 `GET .../result` is where "MCQ score shows immediately; overall grade stays pending until a human grades it" is served: `auto_score` is populated at submit, `total_score` stays null until §5.14 finishes. The response should carry both plus a `grading_status` so the client can render "pending" without inferring it from a null.
 
-`UNIQUE (quiz_id, student_id)` means **one attempt per student per quiz — retakes are not modelled.** No screen offers one, but nothing rules it out either.
+`max_attempts` (default 1) is editable. `UNIQUE (quiz_id, student_id, attempt_number)` plus a partial unique on `IN_PROGRESS`. `409 ATTEMPT_IN_PROGRESS` / `ATTEMPT_LIMIT_REACHED`.
 
 ### 5.14 Grading queue — R17 ✅
 
 TA-side, and the whole of WF 15. Two facts shape every endpoint here:
 
 - **The queue is a query, not a table.** Pending work is `QUIZ_ANSWERS` where `points_awarded IS NULL`, joined to `QUIZ_QUESTIONS` on `question_type = 'STRUCTURED'`, and to `GROUP_ASSISTANTS` for scope. The partial index `QUIZ_ANSWERS (attempt_id) WHERE points_awarded IS NULL` exists for exactly this.
-- **The unit of work is one answer, not one attempt.** WF 15 serves "Youssef T. — Q4 (structured answer)" with its own score box, Save and Skip. Two TAs may legitimately grade different questions of the same student's paper, which is why `graded_by_user_id` lives on `QUIZ_ANSWERS` and not only on the attempt.
+- **The unit of work is one answer, not one attempt.** WF 15 serves "Youssef T. — Q4 (structured answer)" with its own score box, Save and Skip. `GET /grading/queue/next` takes a soft claim (`claimed_by_user_id`, `claimed_at`) so Skip does not re-serve the same essay.
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/grading/queue` | **The dashboard.** Ungraded structured answers across every group the caller may grade. Filters: `quiz_id`, `group_id`, `course_id`. Each item carries student, question text, `points` available, the student's answer, and `model_answer` | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
 | GET | `/grading/summary` | Counts for the badges — pending per quiz, and per group. Backs WF 06's "24 pending" and WF 14's tile | `I` `A` | `assigned-group`+`can_grade` | 06, 14, 15 | ✅ |
-| GET | `/grading/queue/next` | Serve the next item and take a soft claim (`claimed_by_user_id`, `claimed_at`). This is what makes Skip work without re-serving the same essay | `I` `A` | `assigned-group`+`can_grade` | 15 | ⚠️ |
-| POST | `/grading/queue/{answerId}/skip` | Release the claim and move on. Item returns to the pool | `I` `A` | `assigned-group`+`can_grade` | 15 | ⚠️ |
-| PATCH | `/answers/{answerId}/grade` | **Save.** Writes `points_awarded`, optional `evaluator_comment`, stamps `graded_by_user_id` + `graded_at`, clears the claim | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
-| PATCH | `/grading/answers` | **Bulk save.** An array of `{answer_id, points_awarded, evaluator_comment}`. Ahmed grades 150+ students; one round trip per essay is the wrong shape | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
+| GET | `/grading/queue/next` | Serve the next item and take a soft claim (`claimed_by_user_id`, `claimed_at`) | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
+| POST | `/grading/queue/{answerId}/skip` | Release the claim and move on. Item returns to the pool | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
+| PATCH | `/answers/{answerId}/grade` | **Save.** Writes `points_awarded`, optional `evaluator_comment`, stamps `graded_by_user_id` + `graded_at`. Last structured grade **auto-finalizes** the attempt. Clears any claim | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
+| PATCH | `/grading/answers` | **Bulk save.** An array of `{answer_id, points_awarded, evaluator_comment}` | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
 | GET | `/quizzes/{quizId}/attempts` | Per-quiz grading view — every attempt with its pending count | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
-| POST | `/attempts/{attemptId}/finalize` | Compute `total_score`, set `status = GRADED`, stamp the attempt's `graded_by_user_id`. Fires the student + parent fan-out | `I` `A` | `assigned-group`+`can_grade` | 15 | ⚠️ |
+| POST | `/attempts/{attemptId}/finalize` | Instructor override. Idempotent if already `GRADED`. `409 ATTEMPT_INCOMPLETE` if structured answers remain | `I` `A` | `assigned-group`+`can_grade` | 15 | ✅ |
 
 **Authorization — this is the part that was blocked.** Every row above reads `assigned-group`+`can_grade`, which now resolves to a real check: a `GROUP_ASSISTANTS` row for the caller on the answer's `attempt → quiz → group`, with `can_grade = true` and `is_revoked = false`. The course's owning instructor always passes. A TA with "Attendance only" (WF 13, Omar S.) gets `403 INSUFFICIENT_SCOPE` on all of it. Before `G6` this document was asserting a permission with nowhere to live.
 
@@ -442,9 +441,9 @@ TA-side, and the whole of WF 15. Two facts shape every endpoint here:
 | Only `STRUCTURED` answers are human-graded | `422 NOT_MANUALLY_GRADABLE` on an MCQ |
 | An attempt reaches `GRADED` only when every structured answer is scored | `409 ATTEMPT_INCOMPLETE` on premature finalize |
 
-**Auto-finalize or explicit?** `POST /attempts/{attemptId}/finalize` is ⚠️ because there are two defensible designs and the wireframe does not choose. Either the last `PATCH .../grade` on an attempt flips it to `GRADED` automatically — fewer calls, and the TA never has to remember a second step — or finalize stays explicit so a grader can review the whole paper before releasing it to the student and parent. **Auto-finalize is the better fit for WF 15**, whose queue is answer-at-a-time across many students and never shows a whole paper; keep the explicit endpoint as an instructor-side override. Decide before writing the screen-15 doc, because it changes whether the fan-out has one trigger or two.
+**Auto-finalize.** The last `PATCH .../grade` on an attempt's structured answers flips it to `GRADED` and fires `quiz.graded`. `POST /attempts/{attemptId}/finalize` is an instructor override (idempotent if already graded; `409` if incomplete).
 
-**The claim endpoints are ⚠️ by design.** `claimed_by_user_id` is a soft lease: advisory, expiring after a few minutes, and never blocking a grade. Two TAs are visible in WF 13 and the persona has 150+ students, so concurrent grading is real — but if only one person ever grades, drop `/next`, `/skip` and both claim columns and serve the queue with an ordinary paginated `GET`. Nothing else in this section depends on them.
+**Claim/skip.** Soft lease on `QUIZ_ANSWERS`. Advisory, expires after a few minutes, never blocks a grade. `GET /grading/queue/next` claims; `POST .../skip` releases.
 
 **What is not here.** Assignments have no grading queue — they are checked for on-time submission and self-checked against a released solution (§5.11). WF 15's "+ Upload homework solutions" is `PUT /assignments/{assignmentId}/solution`, and it needs `can_upload_solutions`, not `can_grade`. `model_answer` is returned to the grader by `GET /grading/queue`, which closes `GAP B17`; `evaluator_comment` now has a visible input, which closes half of `B18`.
 
@@ -460,10 +459,10 @@ Everything here is computed on read (`GAP E11`).
 | GET | `/students/{studentId}/grades` | Graded submissions | `I` `A` `P` | scoped | 11, 18 | ✅ |
 | GET | `/dashboards/instructor` | WF 06 — four stat cards, today's sessions, pending-grading count | `I` | `own-course` | 06 | 🚫 `C3` |
 | GET | `/dashboards/assistant` | WF 14 — assigned sections, pending count, today's sessions to cover | `A` | `assigned-group` | 14 | 🚫 `C15` |
-| GET | `/dashboards/student` | WF 19 — next session + join window, due-soon across courses, recent grades | `S` | `self` | 19 | ⚠️ |
+| GET | `/dashboards/student` | WF 19 — next session + join window, due-soon, recent **quiz** grades, homework status chips (never a homework score) | `S` | `self` | 19 | ✅ |
 | GET | `/dashboards/parent` | WF 17 — child cards + activity feed | `P` | `linked-child` | 17 | ✅ |
 
-**Notes.** `GET /students` is ⚠️ on three counts: the `Section` column assumes one group per student, but `STUDENT_GROUPS` is many-to-many (`GAP C13`, `D4`); "Missing" homework is the *absence* of an `ASSIGNMENT_SUBMISSIONS` row past `due_date` — derivable now, though which assignments a given student is expected to have done still depends on OQ1 (`GAP C4`); and the attendance-% denominator is undefined until cancelled-session handling is settled (`GAP C16`, `D15`).
+**Notes.** `GET /students` is ⚠️ on two counts: the `Section` column assumes one group per student, but `STUDENT_GROUPS` is many-to-many (`GAP C13`, `D4`); "Missing" homework is the *absence* of an `ASSIGNMENT_SUBMISSIONS` row past `due_date`. Attendance % **excludes cancelled sessions** from the denominator (D15).
 
 `GET /dashboards/instructor` is 🚫 for a documentation reason, not a data one: **the four stat-card labels are blank placeholder bars in the wireframe source.** Only three deep-link targets are named (roster, courses, schedule); the fourth metric is undefined (`GAP C3`). The endpoint cannot be specified until someone says what the numbers count.
 
@@ -513,7 +512,7 @@ The parent tier is modelled: `PARENT` in the `ROLES` enum, a `PARENTS` profile t
 | Trigger endpoint | Event | Lands on |
 |---|---|---|
 | `POST /live-sessions/{id}/end` | `attendance.saved` | 17 badges, 18 |
-| `POST /attempts/{id}/grade` | `quiz.graded` | 22, 18 |
+| Last structured `PATCH /answers/{id}/grade` (or `POST /attempts/{id}/finalize`) | `quiz.graded` | 22, 18 |
 | `POST /lessons/{id}/publish`, `POST /assignments/{id}/solution/release` | `content.published` | 20, 17 |
 | `POST`/`PATCH /live-sessions` | `schedule.changed` | 19, 17 |
 | `POST /payments` | `fee.paid` | 17 badge clears |
@@ -528,11 +527,11 @@ Students reach curriculum through enrollment, never by browsing courses — henc
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/me/courses` | Enrolled courses via `STUDENT_GROUPS` | `S` | `own-enrollment` | 19, 20 | ✅ |
-| GET | `/me/courses/{courseId}/lessons` | **Published lessons only**, grouped by chapter | `S` | `own-enrollment` | 20 | ✅ |
+| GET | `/me/courses/{courseId}/lessons` | **Published lessons only**, grouped by chapter. `progress` is always `null` | `S` | `own-enrollment` | 20 | ✅ |
 | GET | `/me/assignments` | Homework due soon across all enrolled courses | `S` | `own-enrollment` | 19, 23 | ✅ |
 | GET | `/me/quizzes` | Quizzes open or opening soon, by `closes_at` | `S` | `own-enrollment` | 19, 22 | ✅ |
 | GET | `/me/grades` | Recent grades | `S` | `own-enrollment` | 19 | ✅ |
-| GET | `/me/schedule` | Next session + join state | `S` | `own-enrollment` | 19 | ⚠️ |
+| GET | `/me/schedule` | Next session + join state | `S` | `own-enrollment` | 19 | ✅ |
 
 **Notes.** Published/draft is `LESSONS.status`. There is no per-student view log, so progress chips are not backed. A published material inside a draft lesson is **not** visible — publish gating is at the lesson (`GAP D2`).
 
@@ -550,25 +549,25 @@ The checklist for the per-page docs. Each row becomes one `## NN - Screen Name` 
 | 04 | TA invite `s-tainvite` | `GET /invite-tokens/{token}`, `POST /invite-tokens/{token}/accept` | `D39` |
 | 05 | Parent/student invite `s-familyinvite` | same, role-shaped; student-issued parent invites use `POST /invites` | `D39` |
 | 06 | Instructor dashboard `s-idash` | `GET /dashboards/instructor`, `GET /live-sessions?from=today`, `GET /grading/queue` | `C3` |
-| 07 | Curriculum builder `s-curriculum` | `GET /courses/{id}/tree`, chapter + lesson CRUD, both `PUT .../order`, publish/unpublish | — |
-| 08 | Content & assessment hub `s-content` | materials, recordings, `POST /lessons/{id}/assignments`, `POST /groups/{id}/quizzes`, questions | `D1` (quizzes only) |
-| 09 | Scheduling `s-calendar` | `GET/POST/PATCH /live-sessions` | `D14` this-and-following with attendance |
-| 10 | Class session view `s-session` | `GET /live-sessions/{id}`, `PUT .../attendance`, `POST .../end` | `C14` |
-| 11 | Roster & performance `s-roster` | `GET /students`, `GET /students/{id}` | `C4`, `C13`, `C16`, `D33` |
+| 07 | Curriculum builder `s-curriculum` | `GET /courses/{id}/chapters?include=lessons`, chapter + lesson CRUD, both `PUT .../order`, publish/unpublish | — |
+| 08 | Content & assessment hub `s-content` | materials, recordings, `POST /lessons/{id}/assignments`, `POST /groups/{id}/quizzes`, questions | — |
+| 09 | Scheduling `s-calendar` | `GET/POST/PATCH /live-sessions` | — |
+| 10 | Class session view `s-session` | `GET /live-sessions/{id}`, `GET`/`PUT .../attendance`, `POST .../end` | — |
+| 11 | Roster & performance `s-roster` | `GET /students`, `GET /students/{id}` | `C4`, `C13`, `D33` |
 | 12 | Fees & revenue `s-fees` | `GET /fees/summary`, `GET /fees`, `POST /fees/{id}/remind` | `D33` which parent |
-| 13 | Instructor settings `s-isettings` | `GET/PATCH /me/profile`, `GET/PATCH /assistants`, `POST /assistants/{id}/revoke`, `POST`/`GET`/`DELETE /invites`, `GET /me/subscription` | `D10` |
+| 13 | Instructor settings `s-isettings` | `GET/PATCH /me/profile`, `GET/PATCH /assistants`, `POST /assistants/{id}/revoke`, `POST`/`GET`/`DELETE /invites`, `GET /me/subscription` | — |
 | 14 | TA dashboard `s-tadash` | `GET /dashboards/assistant`, `GET /grading/summary` | `C15` |
-| 15 | Grading queue `s-grading` | `GET /grading/queue`, `PATCH /answers/{id}/grade`, `PATCH /grading/answers`, `POST /attempts/{id}/finalize`, `PUT /assignments/{id}/solution` | `D9` regrade, finalize policy |
-| 16 | Attendance taking `s-attendance` | `GET`/`PUT /live-sessions/{id}/attendance` | `D25` |
+| 15 | Grading queue `s-grading` | `GET /grading/queue`, `GET /grading/queue/next`, `POST .../skip`, `PATCH /answers/{id}/grade`, `PATCH /grading/answers`, `POST /attempts/{id}/finalize`, `PUT /assignments/{id}/solution` | `D9` regrade |
+| 16 | Attendance taking `s-attendance` | `GET`/`PUT /live-sessions/{id}/attendance` (same as WF 10) | — |
 | 17 | Parent home `s-phome` | `GET /me/children`, `GET /notifications` | — |
 | 18 | Child detail `s-pchild` | `GET /children/{id}` + four tabs, `POST /payments` | — |
-| 19 | Student dashboard `s-shome` | `GET /dashboards/student`, `GET /me/assignments`, `GET /me/quizzes` | OQ2 homework grade |
+| 19 | Student dashboard `s-shome` | `GET /dashboards/student`, `GET /me/assignments`, `GET /me/quizzes` | — |
 | 20 | Lesson & materials `s-lesson` | `GET /me/courses/{id}/lessons`, `GET /materials/{id}/content` | — |
 | 21 | Live class `s-liveclass` | `GET /live-sessions/{id}/join`, `POST .../attendance/self` | — |
-| 22 | Quiz taking `s-quiz` | `POST /quizzes/{id}/attempts`, `PATCH /attempts/{id}/answers`, `POST .../submit` | `D17` expiry policy |
+| 22 | Quiz taking `s-quiz` | `POST /quizzes/{id}/attempts`, `PATCH /attempts/{id}/answers`, `POST .../submit` | — |
 | 23 | Homework submission `s-homework` | `POST /assignments/{id}/submissions`, `PUT .../submissions/mine` | OQ3 lock |
 
-**Coverage.** Entity gaps G1–G16 that blocked endpoints are closed except behavioural leftovers (`C3` dashboard labels, `C15` per-session TA cover, `D14`, `D17`, OQ2, OQ3). Screen **14**'s "sessions to cover" tile is still 🚫.
+**Coverage.** Entity gaps G1–G16 that blocked endpoints are closed except behavioural leftovers (`C3` dashboard labels, `C15` per-session TA cover, OQ3 assignment resubmit lock). Screen **14**'s "sessions to cover" tile is still 🚫. Meeting webhook is ⚠️ until provider credentials exist.
 
 ---
 
@@ -592,7 +591,7 @@ Ordered by how many endpoints each gap unblocks.
 | ~~`G7`~~ | ✅ `MATERIALS.access_mode`, `size_bytes`, `mime_type` | Screen 08, 20 | 3 unblocked |
 | ~~`G5`~~ | ✅ **Resolved** — password-reset OTP in **cache**, not a table | Screen 03 | 2 unblocked |
 | ~~`G13`~~ | ✅ `PARTIAL` + `joined_at` / `left_at` / `recorded_by_user_id` | Screen 21 | 1 unblocked |
-| ~~`G15`~~ | ✅ `meeting_provider` + `external_meeting_id` + webhook | Screens 10, 21 | 1 unblocked |
+| ~~`G15`~~ | ✅ Fields exist. **v1 pastes `meeting_url`**; webhook unused until OAuth credentials | Screens 10, 21 | join ready; webhook ⚠️ |
 | `G16` | Curriculum enum | Screen 02 | 0 — field only |
 
 `G6` was the one that mattered most: every row in this document with an `A` in the Roles column was asserting a permission that had nowhere to live. With the three flags on `GROUP_ASSISTANTS`, `assigned-group` is now a check the service layer can actually run.
@@ -621,6 +620,7 @@ Codes the per-page docs reference instead of restating rules.
 | `INVALID_WATCH_LIMIT` | `max_watch_limit >= 0`, where **0 means unlimited** |
 | `INVALID_QUIZ_WINDOW` | `closes_at > opens_at` |
 | `INVALID_QUIZ_DURATION` | `duration_seconds > 0` when set |
+| `INVALID_MAX_ATTEMPTS` | `max_attempts >= 1` |
 | `SOLUTION_BEFORE_DEADLINE` | `solution_released_at >= due_date` |
 
 **Uniqueness (`ERD:364-383`) — `409`**
@@ -629,7 +629,8 @@ Codes the per-page docs reference instead of restating rules.
 |---|---|
 | `ORDER_INDEX_CONFLICT` | `(course_id, order_index)` / `(chapter_id, order_index)` / `(lesson_id, order_index)` |
 | `ATTENDANCE_ALREADY_RECORDED` | `(student_id, live_session_id)` |
-| `ATTEMPT_ALREADY_EXISTS` | `(quiz_id, student_id)` — retakes are not modelled |
+| `ATTEMPT_IN_PROGRESS` | Partial unique: one `IN_PROGRESS` attempt per student per quiz |
+| `ATTEMPT_LIMIT_REACHED` | Count of attempts ≥ `max_attempts` |
 | `RECORDING_ALREADY_LINKED` | `recorded_from_live_session_id` is unique |
 
 **Delete policy (`ERD:465-496`) — `409`**
@@ -697,7 +698,7 @@ Each per-page doc follows `DEMO`'s structure: `## NN - Screen Name`, then one `#
 
 **Moved up by the `G1` resolution:** 17 and 18 join Wave 1 for their attendance, grades and schedule surfaces; only their fee tabs wait on `G2`.
 
-**Before Wave 1 starts, four decisions cost nothing and unblock disproportionately:** confirm section == group (`GAP E1`), confirm term folds into course (`G14`), confirm one group per course per student (`GAP E5`), and name the four dashboard stat cards (`C3`). None require schema work.
+**Before Wave 1 starts, three decisions cost nothing and unblock disproportionately:** confirm section == group (`GAP E1`), confirm one group per course per student (`GAP E5`), and name the four dashboard stat cards (`C3`). None require schema work.
 
 **One decision now costs nothing and prevents rework:** none on OQ1 — shared deadline is decided.
 

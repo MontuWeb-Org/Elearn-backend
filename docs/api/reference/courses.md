@@ -4,10 +4,12 @@ The root of the curriculum branch. A course belongs to one instructor and fans o
 
 `subject_id` is a catalog id from [Subjects](subjects.md). `subject_name` is joined on read from `SUBJECTS.name` — do not send it on create.
 
-"Term" is not an entity. `IG Physics — Term 1` is one course; a second term is a second course.
+**Term is not an entity.** `title` is the WF 07 header (typically "Term 1"). A second term is a second course with the same subject.
+
+Retire a live course with `PATCH` `status = ARCHIVED`. `DELETE` is only for an empty draft (no groups).
 
 {% hint style="info" %}
-5 operations — **3 ready**, **2** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+5 operations — **all ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

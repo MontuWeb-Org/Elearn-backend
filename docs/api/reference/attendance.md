@@ -4,8 +4,12 @@ Attendance records against a **live session**, never against a lesson, a course 
 
 Saving is a single bulk `PUT` carrying the full status array. That one endpoint serves both "Mark all present" and "Save Attendance" — at 150+ students, one request per student is the wrong shape.
 
+**Instructor Session View (WF 10) and TA Attendance (WF 16) use this same API.** Same GET, same PUT, same override. The TA still needs `can_take_attendance`.
+
+**Past-session roster** is recorded rows **union** current group members. Cancelled sessions are not in the attendance-percentage denominator.
+
 {% hint style="info" %}
-5 operations — **2 ready**, **2** awaiting a decision, **1 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+5 operations — **5 ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

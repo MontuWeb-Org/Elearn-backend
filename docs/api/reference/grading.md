@@ -6,14 +6,16 @@ Two facts shape every endpoint here:
 
 **The queue is a query, not a table.** Pending work is `QUIZ_ANSWERS` where `points_awarded IS NULL`, joined to `QUIZ_QUESTIONS` on `question_type = 'STRUCTURED'` and to `GROUP_ASSISTANTS` for scope. A partial index exists for exactly this shape.
 
-**The unit of work is one answer, not one attempt.** The queue serves "Youssef T. — Q4 (structured answer)" with its own score box. Two assistants may legitimately grade different questions of the same student's paper, which is why grader attribution lives on the answer and not only on the attempt.
+**The unit of work is one answer, not one attempt.** The queue serves "Youssef T. — Q4 (structured answer)" with its own score box. `GET /grading/queue/next` takes a soft claim so Skip does not re-serve the same essay. The claim is advisory and never blocks a grade.
 
 MCQs never appear here — they are auto-scored at submit. A null `graded_by_user_id` on a scored answer means the machine graded it, not that attribution is missing.
+
+**Auto-finalize.** When the TA grades the last structured question on an attempt, that attempt becomes `GRADED` and `quiz.graded` fans out. `POST .../finalize` is an instructor override only.
 
 **Assignments have no grading queue.** They are checked for on-time submission and self-checked against a released solution. The only homework action on this screen is uploading that solution, which needs `can_upload_solutions`, not `can_grade`.
 
 {% hint style="info" %}
-8 operations — **5 ready**, **3** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+8 operations — **8 ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

@@ -3,7 +3,7 @@
 One landing endpoint per role. All four are pure aggregate reads with no writes, and every number they return is derived.
 
 {% hint style="info" %}
-4 operations — **2** awaiting a decision, **2 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+4 operations — **2 ready**, **2 blocked**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

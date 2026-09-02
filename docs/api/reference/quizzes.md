@@ -4,10 +4,12 @@ Timed assessments on the **cohort branch**: issued to one group, with an availab
 
 `opens_at` and `closes_at` bound when the quiz is available; `duration_seconds` is the clock that starts when a student begins. A quiz may be open for a week but allow 30 minutes once started — either bound may bind first. Omit the duration for an untimed quiz.
 
-`lesson_id` on a quiz is **tagging only**. It does not move the quiz onto the curriculum branch, and it must belong to the group's own course.
+`lesson_id` on a quiz is **tagging only**. It does not move the quiz onto the curriculum branch, and it must belong to the group's own course. A quiz is always created under `/groups/{groupId}/quizzes` — one POST per section.
+
+`max_attempts` defaults to **1** and is editable.
 
 {% hint style="info" %}
-10 operations — **8 ready**, **2** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+10 operations — **10 ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 

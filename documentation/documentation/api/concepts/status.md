@@ -29,27 +29,27 @@ proposal to be reviewed, not a contract to build against.
 | [Invites](../reference/invites.md) | 5 | 0 | 0 |
 | [Billing](../reference/billing.md) | 2 | 2 | 0 |
 | [Subjects](../reference/subjects.md) | 1 | 0 | 0 |
-| [Courses](../reference/courses.md) | 4 | 1 | 0 |
+| [Courses](../reference/courses.md) | 5 | 0 | 0 |
 | [Chapters](../reference/chapters.md) | 6 | 0 | 0 |
 | [Lessons](../reference/lessons.md) | 8 | 0 | 0 |
 | [Materials](../reference/materials.md) | 5 | 0 | 0 |
 | [Recordings](../reference/recordings.md) | 5 | 0 | 0 |
 | [Uploads](../reference/uploads.md) | 0 | 1 | 0 |
 | [Assignments](../reference/assignments.md) | 10 | 1 | 0 |
-| [Groups](../reference/groups.md) | 4 | 4 | 0 |
-| [Assistants](../reference/assistants.md) | 6 | 1 | 0 |
-| [Scheduling](../reference/scheduling.md) | 4 | 2 | 0 |
-| [Attendance](../reference/attendance.md) | 4 | 1 | 0 |
-| [Quizzes](../reference/quizzes.md) | 8 | 2 | 0 |
-| [Quiz attempts](../reference/attempts.md) | 4 | 1 | 0 |
-| [Grading](../reference/grading.md) | 5 | 3 | 0 |
+| [Groups](../reference/groups.md) | 5 | 3 | 0 |
+| [Assistants](../reference/assistants.md) | 7 | 0 | 0 |
+| [Scheduling](../reference/scheduling.md) | 6 | 1 | 0 |
+| [Attendance](../reference/attendance.md) | 5 | 0 | 0 |
+| [Quizzes](../reference/quizzes.md) | 10 | 0 | 0 |
+| [Quiz attempts](../reference/attempts.md) | 5 | 0 | 0 |
+| [Grading](../reference/grading.md) | 8 | 0 | 0 |
 | [Roster](../reference/roster.md) | 2 | 2 | 0 |
-| [Dashboards](../reference/dashboards.md) | 1 | 1 | 2 |
+| [Dashboards](../reference/dashboards.md) | 2 | 0 | 2 |
 | [Fees](../reference/fees.md) | 5 | 1 | 0 |
 | [Parent portal](../reference/parents.md) | 5 | 1 | 0 |
 | [Notifications](../reference/notifications.md) | 2 | 0 | 0 |
-| [Student portal](../reference/student.md) | 5 | 1 | 0 |
-| **Total** | **109** | **27** | **2** |
+| [Student portal](../reference/student.md) | 6 | 0 | 0 |
+| **Total** | **123** | **14** | **2** |
 
 ## What is blocked, and why
 
@@ -66,15 +66,17 @@ Three of the ⚠️ items change the shape of an endpoint rather than just its b
 before implementation avoids rework.
 
 **Session recurrence.** Weekly sessions write a `SESSION_SERIES` parent and materialized
-`LIVE_SESSIONS` rows. `PATCH` takes `scope=this|this_and_following`. Remaining open: editing
-"this and following" when later occurrences already have attendance (`GAP D14`).
+`LIVE_SESSIONS` rows. `PATCH` takes `scope=this|this_and_following`. Later siblings that already
+have attendance are **skipped** (left unchanged); the response lists `skipped_session_ids`.
 
 **Assignment deadlines across sections.** **Decided: shared.** `ASSIGNMENTS.due_date` is one timestamp for every group. No `GROUP_ASSIGNMENTS` junction.
 
-**Auto-finalize on grading.** Either the last per-answer grade flips an attempt to `GRADED`
-automatically, or finalizing stays an explicit second step. Auto fits the queue better — it serves
-one answer at a time across many students and never shows a whole paper — but it decides whether
-the student and parent fan-out has one trigger or two.
+**Auto-finalize on grading.** **Decided: auto.** The last structured grade on an attempt flips it
+to `GRADED` and fires `quiz.graded`. `POST .../finalize` is an instructor override (idempotent if
+already graded).
+
+**Meeting links.** **Decided: pasted URL.** Instructors paste Zoom/Meet into `meeting_url`. No
+OAuth credentials. The webhook stays unused until a provider is connected.
 
 ## Where this comes from
 

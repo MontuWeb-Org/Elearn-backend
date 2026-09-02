@@ -1,6 +1,6 @@
 # Chapters
 
-Chapters order the syllabus within a course. The Curriculum Builder loads its whole tree from `GET /courses/{courseId}/chapters?include=lessons` — one request per page load.
+Chapters order the syllabus within a course. The Curriculum Builder loads its whole tree from `GET /courses/{courseId}/chapters?include=lessons` — one request per page load. There is **no** `/tree` path.
 
 **Reordering is a collection-level `PUT`, not a `PATCH` per item.** `UNIQUE (course_id, order_index)` means moving chapters one at a time collides mid-sequence, so a drag-and-drop sends the complete ordered array and the server reassigns every index in one transaction. Lessons, recordings, assignments and quiz questions all follow the same pattern.
 

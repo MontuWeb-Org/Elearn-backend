@@ -7,7 +7,7 @@ A group is a cohort — what the wireframes call a **section**. "Section A", "Se
 **There is no group delete.** A cohort with history cannot be removed — archive it.
 
 {% hint style="info" %}
-8 operations — **4 ready**, **4** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+8 operations — **5 ready**, **3** awaiting a decision. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 
