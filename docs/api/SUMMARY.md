@@ -17,6 +17,7 @@
 * [Authentication](reference/authentication.md)
 * [Invites](reference/invites.md)
 * [Billing](reference/billing.md)
+* [Subjects](reference/subjects.md)
 * [Courses](reference/courses.md)
 * [Chapters](reference/chapters.md)
 * [Lessons](reference/lessons.md)

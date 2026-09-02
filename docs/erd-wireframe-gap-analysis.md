@@ -28,7 +28,7 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~A18~~ | ✅ **CLOSED** for the re-submission half — `UNIQUE (assignment_id, student_id)`, overwrite in place. The *lock trigger* is still open (`ERD` Open Question 3) —  Re-submission until graded; grading locks the submission | `WF 23 s-homework` | No attempt/version or lock representation |
 | ~~A19~~ | ✅ **CLOSED.** `ASSIGNMENTS.solution_file_url` + `solution_released_at` —  "Upload homework solutions" by the TA — solution files attached to an assessment | `WF 15 s-grading` | `ASSESSMENTS` has no attachment or solution field (`ERD:247-257`) |
 | ~~A20~~ | ✅ **CLOSED.** `ASSIGNMENT_SUBMISSIONS.student_note` —  Student's optional "Notes for your teacher" attached to a homework submission | `WF 23 s-homework` | `ASSESSMENT_SUBMISSIONS.feedback_comments` is grader-side; no student-authored note field |
-| ~~A21~~ | ✅ **CLOSED.** `USERS.full_name`; `TEACHERS.subjects_taught` (one string); `TEACHERS.curriculum` plus `COURSES.curriculum` | `WF 02 s-signup` | Resolved. Instructor sign-up captures full name as one field, "Subject(s) taught" (plural), and curriculum choice IGCSE / American Diploma / **Both** |
+| ~~A21~~ | ✅ **CLOSED.** `USERS.full_name`; `SUBJECTS` catalog + `TEACHER_SUBJECTS`; `TEACHERS.curriculum` plus `COURSES.curriculum` | `WF 02 s-signup` | Resolved. Instructor sign-up captures full name as one field, picks subjects from `GET /subjects` filtered by curriculum, and curriculum choice IGCSE / American Diploma / **Both** |
 | ~~A22~~ | ✅ **CLOSED.** `USER_SESSIONS.remember_me` lengthens `expires_at` | `WF 01 s-login` | Resolved |
 | A23 | Notification deep-links — "tapping an update deep-links to the specific session or quiz" | `WF 17 s-phome` | ✅ **CLOSED.** `NOTIFICATIONS.target_type` / `target_id` |
 | ~~A24~~ | ✅ **CLOSED** with A1 — parent contact reachable via `PARENT_STUDENTS` → `PARENTS.phone` / `USERS.email` | `WF 11 s-roster` | Resolved |
@@ -82,7 +82,7 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | ~~C9~~ | ✅ **CLOSED.** Countable from `QUIZ_ATTEMPTS (quiz_id, status)` —  "MCQs auto-graded — 18/24 already complete" | `WF 15 s-grading` | Requires per-question grading progress across submissions; `total_score` is a single nullable value on the submission |
 | ~~C10~~ | ✅ **CLOSED.** `QUIZ_ATTEMPTS.auto_score` vs `total_score` —  "MCQ score shows immediately; overall grade stays pending until a human grades it" | `WF 22 s-quiz` | Requires a partial/provisional score distinct from the final `total_score` |
 | C11 | File size ("1.2 MB") and type | `WF 08 s-content` | Not stored (A9) |
-| ~~C12~~ | ✅ **CLOSED.** `COURSES.curriculum` + `subject_name` | `WF 17 s-phome` | Parent child card label |
+| ~~C12~~ | ✅ **CLOSED.** `COURSES.curriculum` + `SUBJECTS.name` | `WF 17 s-phome` | Parent child card label |
 | C13 | A single "Section" per student row | `WF 11 s-roster`, `12 s-fees` | `STUDENT_GROUPS` is many-to-many, so a student may map to several groups; the UI assumes one |
 | C14 | The roster for a past session ("Attendance (24)") | `WF 10 s-session` | Group membership is current-state only; a past session's roster would be reconstructed from present membership, which drifts as students join or leave |
 | C15 | TA's "Today's sessions to cover" | `WF 14 s-tadash` | `GROUP_ASSISTANTS` assigns a TA to a group, not to a session; "to cover" implies a per-session assignment that does not exist |

@@ -38,6 +38,7 @@ or the status.
 | `LESSON_COURSE_MISMATCH` | Creating or updating a live session whose `lesson_id` is outside the group's course |
 | `RECORDING_SESSION_MISMATCH` | A recording whose source live session covers a different lesson |
 | `QUIZ_COURSE_MISMATCH` | A quiz whose `lesson_id` tag is outside the group's course |
+| `SUBJECT_CURRICULUM_MISMATCH` | A `subject_id` whose catalog curriculum is not allowed by the teacher's or course's curriculum |
 
 ## Field constraints — `422`
 

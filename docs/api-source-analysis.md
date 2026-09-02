@@ -163,7 +163,7 @@ These must be computed server-side and documented as response fields, not stored
 | ~~G13~~ | ✅ **RESOLVED.** `ATTENDANCE.status` includes `PARTIAL`; `joined_at` / `left_at` / `recorded_by_user_id` | `WF #s-liveclass` | Manual override wins and stamps `recorded_by` |
 | G14 | **"Terms" level missing.** Scope and the builder screen both show subjects → **terms** → chapters → lessons; the ERD is COURSES → CHAPTERS → LESSONS | `SCOPE §3.B`, `WF #s-curriculum` ("IG Physics — Term 1") vs `ERD:127-152` | Confirm term is folded into the course (one course per term) — likely, but state it explicitly in the docs |
 | ~~G15~~ | ✅ **RESOLVED.** `meeting_provider` + `external_meeting_id` + webhook | `WF #s-session`, `#s-liveclass` | — |
-| ~~G16~~ | ✅ **RESOLVED.** `TEACHERS.curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH`); `COURSES.curriculum` is one track | `WF #s-signup`, `#s-phome` | Parent child cards concatenate course curriculum + subject |
+| ~~G16~~ | ✅ **RESOLVED.** `TEACHERS.curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH`); `COURSES.curriculum` is one track; subjects are a catalog (`SUBJECTS`) | `WF #s-signup`, `#s-phome` | Parent child cards concatenate course curriculum + `SUBJECTS.name` |
 
 ---
 

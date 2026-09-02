@@ -65,7 +65,7 @@ This matches how `DEMO` already writes `PATCH /api/chapters/{chapter-id}` and `D
 
 ## 2. Cross-cutting contracts
 
-**Auth.** `Authorization: Bearer <access_token>` on everything except the six public endpoints marked `—` in the role column. Access token short-lived; refresh token rotates against `USER_SESSIONS.refresh_token_hash` (`ERD:41-50`). "Remember me" (WF 01) extends refresh lifetime only.
+**Auth.** `Authorization: Bearer <access_token>` on everything except the public endpoints marked `—` in the role column. Access token short-lived; refresh token rotates against `USER_SESSIONS.refresh_token_hash` (`ERD:41-50`). "Remember me" (WF 01) extends refresh lifetime only.
 
 **Role codes used in every table below**
 
@@ -147,7 +147,8 @@ Consequences:
 | R2 | `/invites` | `INVITES`, `INVITE_GROUPS` | 04, 05, 13 |
 | R3 | `/me` | `USERS`, `TEACHERS`, `STUDENTS` | 13, 19 |
 | R4 | `/plans`, `/subscriptions` | `SUBSCRIPTION_PLANS`, `SUBSCRIPTIONS` | 02, 13 |
-| R5 | `/courses` | `COURSES` | 06, 07 |
+| R4b | `/subjects` | `SUBJECTS` | 02, 07 |
+| R5 | `/courses` | `COURSES`, `SUBJECTS` | 06, 07 |
 | R6 | `/chapters` | `CHAPTERS` | 07 |
 | R7 | `/lessons` | `LESSONS` | 07, 08, 20 |
 | R8 | `/materials` | `MATERIALS` | 08, 20 |
@@ -184,11 +185,11 @@ Consequences:
 | POST | `/auth/password/forgot` | Email a 6-digit OTP. **Uniform 202 whether or not the email exists** (`WF 03`). Replaces any live OTP for that user | `—` | — | 03 | ✅ |
 | POST | `/auth/password/reset` | `email` + `otp` + new password. No token. Wrong or unknown email both return `401 INVALID_OTP` | `—` | — | 03 | ✅ |
 | GET | `/me/profile` | Profile tab | all | `self` | 13, 19 | ✅ |
-| PATCH | `/me/profile` | Edit profile (`full_name`, `avatar_url`, `subjects_taught`, `curriculum`) | all | `self` | 13, 19 | ✅ |
+| PATCH | `/me/profile` | Edit profile (`full_name`, `avatar_url`, `subject_ids`, `curriculum`) | all | `self` | 13, 19 | ✅ |
 | GET | `/me/sessions` | Active devices — non-revoked `USER_SESSIONS` | all | `self` | — | ✅ |
 | DELETE | `/me/sessions/{sessionId}` | Revoke one device (`is_revoked`) | all | `self` | — | ✅ |
 
-**Notes.** `POST /auth/register` matches WF 02: `full_name` (one field on `USERS`), `subjects_taught` (one string on `TEACHERS`), and `curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH` on `TEACHERS`). Login `remember_me` is stored on `USER_SESSIONS`.
+**Notes.** `POST /auth/register` matches WF 02: `full_name` (one field on `USERS`), `subject_ids` (catalog ids into `TEACHER_SUBJECTS`), and `curriculum` (`IGCSE` / `AMERICAN_DIPLOMA` / `BOTH` on `TEACHERS`). The client loads ids from `GET /subjects`. Login `remember_me` is stored on `USER_SESSIONS`.
 
 ### 5.2 Invites & onboarding — R2 ✅
 
@@ -225,12 +226,20 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 
 **Notes.** ⚠️ on `/plans`: WF 02 sizes the plan on "student count **and TA seats**" but `SUBSCRIPTION_PLANS` has only `max_students` (`GAP D20`). Payment processing itself is out of scope for the resource API — assume a provider token in the body.
 
+### 5.3b Subjects — R4b
+
+| Method | Path | Purpose | Roles | Scope | WF | St |
+|---|---|---|---|---|---|---|
+| GET | `/subjects` | Catalog for the curriculum filter. `?curriculum=IGCSE` / `AMERICAN_DIPLOMA`; omit for both | `—` | — | 02, 07 | ✅ |
+
+**Notes.** Same display name on both tracks is two rows. Writes (`POST /auth/register`, `POST /courses`) take `subject_id` / `subject_ids` from this list. Mismatch with the teacher's or course's curriculum is `422 SUBJECT_CURRICULUM_MISMATCH`.
+
 ### 5.4 Curriculum: courses — R5
 
 | Method | Path | Purpose | Roles | Scope | WF | St |
 |---|---|---|---|---|---|---|
 | GET | `/courses` | Instructor's courses. Filters: `status`, `grade_level` | `I` `A` | `own-course` / `assigned-group` | 06, 07 | ✅ |
-| POST | `/courses` | Create course | `I` | `self` | 02, 07 | ✅ |
+| POST | `/courses` | Create course (`subject_id` from `GET /subjects`) | `I` | `self` | 02, 07 | ✅ |
 | GET | `/courses/{courseId}` | Course header — WF 07's "IG Physics — Term 1" | `I` `A` | `own-course` | 07 | ✅ |
 | PATCH | `/courses/{courseId}` | Rename, edit description, change `status` | `I` | `own-course` | 07 | ✅ |
 | DELETE | `/courses/{courseId}` | Cascades the curriculum spine (`ERD:465-496`) | `I` | `own-course` | — | ⚠️ |
@@ -536,7 +545,7 @@ The checklist for the per-page docs. Each row becomes one `## NN - Screen Name` 
 | # | Screen | Primary endpoints | Blockers |
 |---|---|---|---|
 | 01 | Login `s-login` | `POST /auth/login`, `POST /auth/refresh` | `E17` one-role routing |
-| 02 | Instructor sign-up `s-signup` | `POST /auth/register`, `GET /plans`, `POST /subscriptions` | — |
+| 02 | Instructor sign-up `s-signup` | `GET /subjects`, `POST /auth/register`, `GET /plans`, `POST /subscriptions` | — |
 | 03 | Forgot password `s-forgot` | `POST /auth/password/forgot`, `POST /auth/password/reset` | — OTP in cache |
 | 04 | TA invite `s-tainvite` | `GET /invite-tokens/{token}`, `POST /invite-tokens/{token}/accept` | `D39` |
 | 05 | Parent/student invite `s-familyinvite` | same, role-shaped; student-issued parent invites use `POST /invites` | `D39` |

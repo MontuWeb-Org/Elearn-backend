@@ -45,7 +45,7 @@ Four concepts apply to every endpoint and are not repeated on each one.
 https://api.montu.example/api/v1
 ```
 
-Every request except six public endpoints carries a bearer token:
+Every request except the public endpoints (login, register, password reset, invite tokens, plans, subjects) carries a bearer token:
 
 ```http
 Authorization: Bearer <access_token>
@@ -56,6 +56,7 @@ refresh tokens rotate on every use.
 
 ## Quick orientation
 
+* **Picking a subject?** [Subjects](reference/subjects.md) filtered by curriculum, then [Courses](reference/courses.md)
 * **Building a syllabus?** [Courses](reference/courses.md) → [Chapters](reference/chapters.md) → [Lessons](reference/lessons.md) → [Materials](reference/materials.md)
 * **Running classes?** [Groups](reference/groups.md) → [Scheduling](reference/scheduling.md) → [Attendance](reference/attendance.md)
 * **Assessing?** [Assignments](reference/assignments.md) for homework, [Quizzes](reference/quizzes.md) → [Quiz attempts](reference/attempts.md) → [Grading](reference/grading.md) for tests

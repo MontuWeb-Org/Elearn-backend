@@ -25,6 +25,8 @@ tags:
   description: Instructor-issued invites — the only route to a TA, student or parent account.
 - name: Billing
   description: Instructor → platform subscriptions. Distinct from student fees.
+- name: Subjects
+  description: Platform catalog of subjects, filtered by curriculum. Frontend never hardcodes names.
 - name: Courses
   description: The curriculum root.
 - name: Chapters
@@ -166,9 +168,11 @@ paths:
       summary: Register as instructor
       description: "Step 1 of 3 of instructor sign-up. Creates the `USERS` row, the `TEACHERS` profile\
         \ and the `TEACHER` role assignment. Only instructors may self-register; every other account arrives\
-        \ by invite. Duplicate email is `409 EMAIL_TAKEN`. Returns `201` and an `AuthSession` so the client\
-        \ can continue to plan selection (step 2).\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:**\
-        \ 02\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+        \ by invite. Duplicate email is `409 EMAIL_TAKEN`. `subject_ids` must come from `GET /subjects`\
+        \ and each subject's curriculum must be allowed by `curriculum` (`422 SUBJECT_CURRICULUM_MISMATCH`).\
+        \ Returns `201` and an `AuthSession` so the client can continue to plan selection (step 2).\n\n\
+        **Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** 02\n\n**Status:** ✅ Specifiable — fully\
+        \ backed by the ERD."
       security: []
       requestBody:
         required: true
@@ -187,6 +191,8 @@ paths:
           $ref: '#/components/responses/400'
         '409':
           $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
   /auth/password/forgot:
     post:
       tags:
@@ -634,6 +640,38 @@ paths:
           $ref: '#/components/responses/401'
         '403':
           $ref: '#/components/responses/403'
+  /subjects:
+    get:
+      tags:
+      - Subjects
+      operationId: listSubjects
+      summary: List subjects
+      description: "Platform catalog for the curriculum filter on sign-up (WF 02) and course create (WF\
+        \ 07). Omit `curriculum` to return both tracks; pass `IGCSE` or `AMERICAN_DIPLOMA` to filter.\
+        \ Inactive catalog rows are omitted. Same display name on both tracks is two rows (two ids).\n\
+        \nThe client never hardcodes subject names — pick `subject_id` from this list and send it on\
+        \ `POST /auth/register` (`subject_ids`) and `POST /courses` (`subject_id`).\n\n**Roles:** —  \n\
+        **Ownership scope:** —  \n**Wireframe:** 02, 07\n\n**Status:** ✅ Specifiable — fully backed by\
+        \ the ERD."
+      security: []
+      parameters:
+      - name: curriculum
+        in: query
+        required: false
+        description: Restrict to one track. Omit for both.
+        schema:
+          $ref: '#/components/schemas/CourseCurriculum'
+      responses:
+        '200':
+          description: Active catalog rows, `order_index` ascending within each curriculum.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subject'
+        '400':
+          $ref: '#/components/responses/400'
   /courses:
     get:
       tags:
@@ -675,8 +713,10 @@ paths:
       - Courses
       operationId: createCourse
       summary: Create a course
-      description: "New courses start as `DRAFT`.\n\n**Roles:** I  \n**Ownership scope:** self  \n**Wireframe:**\
-        \ 02, 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: "New courses start as `DRAFT`. `subject_id` is a catalog id from `GET /subjects`.\
+        \ `SUBJECTS.curriculum` must equal the body's `curriculum` (`422 SUBJECT_CURRICULUM_MISMATCH`).\
+        \ `subject_name` is not accepted — it is joined on read.\n\n**Roles:** I  \n**Ownership scope:**\
+        \ self  \n**Wireframe:** 02, 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
       requestBody:
         required: true
         content:
@@ -694,6 +734,8 @@ paths:
           $ref: '#/components/responses/400'
         '409':
           $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
         '401':
           $ref: '#/components/responses/401'
         '403':
@@ -4595,7 +4637,7 @@ components:
       enum:
       - IGCSE
       - AMERICAN_DIPLOMA
-      description: A course is one track. Parent child cards concatenate this with `subject_name`.
+      description: A course is one track. Parent child cards concatenate this with `SUBJECTS.name`.
     LoginRequest:
       type: object
       properties:
@@ -4672,9 +4714,11 @@ components:
           type: string
           format: password
           minLength: 8
-        subjects_taught:
-          type: string
-          description: WF 02 one input. Stored on `TEACHERS.subjects_taught`. Several subjects are comma-separated free text.
+        subject_ids:
+          type: array
+          minItems: 1
+          items: *id022
+          description: WF 02 multi-select. Catalog ids from `GET /subjects`. Stored as `TEACHER_SUBJECTS`. Each subject's curriculum must be allowed by `curriculum`.
         curriculum:
           $ref: '#/components/schemas/TeacherCurriculum'
       required:
@@ -4682,6 +4726,7 @@ components:
       - email
       - password
       - curriculum
+      - subject_ids
     ForgotPasswordRequest:
       type: object
       properties:
@@ -4717,7 +4762,11 @@ components:
         avatar_url: *id019
         phone: *id019
         bio: *id019
-        subjects_taught: *id019
+        subjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subject'
+          description: Instructor only. From `TEACHER_SUBJECTS`.
         curriculum:
           $ref: '#/components/schemas/TeacherCurriculum'
         school_name: *id019
@@ -4729,7 +4778,11 @@ components:
         avatar_url: *id021
         phone: *id021
         bio: *id021
-        subjects_taught: *id021
+        subject_ids:
+          type: array
+          minItems: 1
+          items: *id022
+          description: Instructor only. Replaces the whole `TEACHER_SUBJECTS` set. Each id from `GET /subjects`.
         curriculum:
           $ref: '#/components/schemas/TeacherCurriculum'
         school_name: *id021
@@ -4918,12 +4971,29 @@ components:
           - CANCELLED
         start_date: *id023
         end_date: *id023
+    Subject:
+      type: object
+      properties:
+        subject_id: *id022
+        name: *id021
+        curriculum:
+          $ref: '#/components/schemas/CourseCurriculum'
+        order_index: *id020
+      required:
+      - subject_id
+      - name
+      - curriculum
+      - order_index
+      description: One catalog row. Same display name on both tracks is two rows.
     Course:
       type: object
       properties:
         course_id: *id022
         course_code: *id021
-        subject_name: *id021
+        subject_id: *id022
+        subject_name:
+          type: string
+          description: Read-side join of `SUBJECTS.name`. Not stored on `COURSES`.
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
         description: *id019
@@ -4937,19 +5007,19 @@ components:
       type: object
       properties:
         course_code: *id021
-        subject_name: *id021
+        subject_id: *id022
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
         description: *id021
         grade_level: *id021
         fees: *id026
       required:
-      - subject_name
+      - subject_id
       - curriculum
     CourseUpdate:
       type: object
       properties:
-        subject_name: *id021
+        subject_id: *id022
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
         description: *id021
@@ -5940,7 +6010,7 @@ components:
         name: *id021
         course_label:
           type: string
-          description: WF 17's "American Diploma Math" — `COURSES.curriculum` plus `subject_name`.
+          description: WF 17's "American Diploma Math" — `COURSES.curriculum` plus `SUBJECTS.name`.
         attendance_percent:
           type:
           - integer
@@ -6027,7 +6097,10 @@ components:
       type: object
       properties:
         course_id: *id022
-        subject_name: *id021
+        subject_id: *id022
+        subject_name:
+          type: string
+          description: Read-side join of `SUBJECTS.name`.
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
         group_id: *id022

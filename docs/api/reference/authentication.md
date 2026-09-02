@@ -62,7 +62,7 @@ Inactive users (`is_active = false`) whose password is correct receive `403 ACCO
 | Field | Who may PATCH |
 |---|---|
 | `full_name`, `avatar_url` | All |
-| `bio`, `subjects_taught`, `curriculum` | Instructor only |
+| `bio`, `subject_ids` / `subjects`, `curriculum` | Instructor only |
 | `phone` | Parent only |
 | `school_name`, `grade_level` | Student only |
 
@@ -78,6 +78,7 @@ Any other field in the body is `422 FIELD_NOT_ALLOWED`. Email is not editable.
 | `ACCOUNT_DISABLED` | 403 | Password matched, `is_active` is false |
 | `EMAIL_TAKEN` | 409 | `POST /auth/register` when the address already exists |
 | `FIELD_NOT_ALLOWED` | 422 | Profile field that this role cannot write |
+| `SUBJECT_CURRICULUM_MISMATCH` | 422 | A `subject_id` whose catalog curriculum is not allowed by `curriculum` |
 | `UNAUTHENTICATED` | 401 | Missing or expired access token |
 
 ---

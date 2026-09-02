@@ -2,6 +2,8 @@
 
 The root of the curriculum branch. A course belongs to one instructor and fans out two ways: into chapters and lessons (the syllabus, authored once) and into groups (the sections that actually take it). See [The two branches](../concepts/two-branches.md).
 
+`subject_id` is a catalog id from [Subjects](subjects.md). `subject_name` is joined on read from `SUBJECTS.name` — do not send it on create.
+
 "Term" is not an entity. `IG Physics — Term 1` is one course; a second term is a second course.
 
 {% hint style="info" %}

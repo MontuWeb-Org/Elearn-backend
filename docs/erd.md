@@ -59,8 +59,20 @@ erDiagram
     TEACHERS {
         uuid user_id PK, FK
         string bio
-        string subjects_taught
         enum curriculum "IGCSE, AMERICAN_DIPLOMA, BOTH"
+    }
+
+    SUBJECTS {
+        uuid subject_id PK
+        string name
+        enum curriculum "IGCSE, AMERICAN_DIPLOMA"
+        int order_index
+        boolean is_active
+    }
+
+    TEACHER_SUBJECTS {
+        uuid user_id PK, FK
+        uuid subject_id PK, FK
     }
 
     STUDENTS {
@@ -136,8 +148,8 @@ erDiagram
     COURSES {
         uuid course_id PK
         uuid teacher_id FK
+        uuid subject_id FK
         string course_code UK
-        string subject_name
         enum curriculum "IGCSE, AMERICAN_DIPLOMA"
         string description
         string grade_level
@@ -375,6 +387,9 @@ erDiagram
     USERS ||--o{ SUBSCRIPTIONS : "subscribes via"
     SUBSCRIPTION_PLANS ||--o{ SUBSCRIPTIONS : "defines"
 
+    SUBJECTS ||--o{ TEACHER_SUBJECTS : "taught by"
+    TEACHERS ||--o{ TEACHER_SUBJECTS : "teaches"
+    SUBJECTS ||--o{ COURSES : "is offered as"
     TEACHERS ||--o{ COURSES : "creates"
 
     COURSES  ||--o{ CHAPTERS : "is split into"
@@ -448,7 +463,8 @@ Mermaid cannot express these; they are part of the schema contract.
 | `INVITE_GROUPS` | composite PK `(invite_id, group_id)` | One scope row per group. Permission flags are **not** on the invite — they are set on `GROUP_ASSISTANTS` after acceptance, defaulting to false |
 | `PARENT_STUDENTS` | composite PK `(parent_user_id, student_id)` | One link row per parent–child pair; re-inviting an existing parent is a no-op, not a duplicate |
 | `ENROLLMENT_FEES` | `UNIQUE (student_id, group_id, period_start)` | One fee row per student per section per billing period |
-| `STUDENT_GROUPS`, `GROUP_ASSISTANTS`, `USER_ROLES` | composite PK | Already covered |
+| `STUDENT_GROUPS`, `GROUP_ASSISTANTS`, `USER_ROLES`, `TEACHER_SUBJECTS` | composite PK | Already covered |
+| `SUBJECTS` | `UNIQUE (curriculum, name)` | Physics IGCSE and Physics American Diploma are two catalog rows |
 
 ### CHECK constraints
 
@@ -472,6 +488,7 @@ Mermaid cannot express these; they are part of the schema contract.
 - `ASSIGNMENTS`: `solution_released_at >= due_date` when both set — **releasing the solution before the deadline defeats the assignment**
 - `GROUP_ASSISTANTS`: `can_take_attendance`, `can_grade`, `can_upload_solutions` default **false**
 - `COURSES.curriculum` is `IGCSE` or `AMERICAN_DIPLOMA` — a course is one track. `BOTH` exists only on `TEACHERS`
+- `SUBJECTS.curriculum` is `IGCSE` or `AMERICAN_DIPLOMA` — same name on both tracks is two rows
 - `USERS.full_name` and `INVITES.full_name` are required non-empty strings
 
 ### Cross-branch integrity
@@ -485,6 +502,8 @@ Splitting curriculum from cohorts introduces the possibility of the two branches
 16. **`ENROLLMENT_FEES`** — `group_id` must be a group the student is enrolled in (`STUDENT_GROUPS`). `amount` is seeded from that group's `COURSES.fees`.
 17. **`PAYMENTS.paid_by_user_id`** — must be a parent linked to the fee's student (`PARENT_STUDENTS`), or the instructor who owns the course.
 18. **`COURSES.curriculum`** — must be allowed by the owning teacher's `TEACHERS.curriculum`. `IGCSE` / `AMERICAN_DIPLOMA` teachers may only create that track; `BOTH` may create either.
+19. **`COURSES.subject_id`** — `SUBJECTS.curriculum` must equal `COURSES.curriculum`. The API exposes `subject_name` as a read-side join, not a stored column.
+20. **`TEACHER_SUBJECTS.subject_id`** — each subject's curriculum must be allowed by `TEACHERS.curriculum`. An `IGCSE` teacher cannot pick an American-Diploma catalog row.
 
 `ASSIGNMENTS` needs no such check: it hangs off `LESSONS` directly and is therefore natively cohort-independent. The corresponding rule moves to authorization — a student may only submit to an assignment whose lesson belongs to a course they are enrolled in through some group.
 
@@ -550,6 +569,9 @@ INVITES (issued_by_user_id, accepted_at)    -- "my outstanding invites" (WF 13)
 INVITES (email)                             -- does this address already have a live invite?
 INVITE_GROUPS (group_id)
 PARENT_STUDENTS (student_id)                -- "who are this student's parents?" (roster panel, fee reminder)
+SUBJECTS (curriculum, order_index) WHERE is_active = true
+TEACHER_SUBJECTS (subject_id)
+COURSES (subject_id)
 ```
 
 ### Delete behaviour
@@ -590,6 +612,9 @@ PARENT_STUDENTS (student_id)                -- "who are this student's parents?"
 | `USERS → PARENTS` | `CASCADE` | The profile row dies with the account, like `TEACHERS` and `STUDENTS` |
 | `PARENTS → PARENT_STUDENTS` | `CASCADE` | Deleting a parent account removes its links; **no student data is touched** |
 | `STUDENTS → PARENT_STUDENTS` | `CASCADE` | A deleted student takes its links with it |
+| `SUBJECTS → COURSES` | `RESTRICT` | A catalog row in use by a course cannot be deleted; retire it with `is_active = false` |
+| `SUBJECTS → TEACHER_SUBJECTS` | `CASCADE` | Dropping a catalog row drops teacher picks |
+| `TEACHERS → TEACHER_SUBJECTS` | `CASCADE` | The pick list dies with the profile |
 
 ---
 
@@ -629,8 +654,9 @@ PARENT_STUDENTS (student_id)                -- "who are this student's parents?"
 - **`ENROLLMENT_FEES` is student → instructor money**, one row per student per group per billing period. Distinct from `SUBSCRIPTIONS` (instructor → platform). `COURSES.fees` is the price tag that seeds `amount`. `PAYMENTS` clears the row to `PAID` and is what the parent writes on WF 18.
 - **`USERS.full_name` is the only name field.** WF 02 and WF 04 capture one "Full name" input; greetings and roster cells render that string. There is no `first_name` / `last_name` split and no separate `display_name`. `avatar_url` is the chrome photo (WF 06, 13, 14).
 - **`INVITES.full_name` is the name the issuer types** (WF 13 modal: name + email; student/parent names are pre-set because WF 05 setup asks only for a password). Acceptance copies it onto `USERS.full_name` unless the accept body sends a different `full_name` (the TA screen does; student and parent screens do not).
-- **`TEACHERS.subjects_taught` is one string**, matching the single "Subject(s) taught" input on WF 02. Several subjects are comma-separated free text, not a child table.
-- **`TEACHERS.curriculum` is `IGCSE`, `AMERICAN_DIPLOMA`, or `BOTH` (WF 02).** **`COURSES.curriculum` is only `IGCSE` or `AMERICAN_DIPLOMA`** — a course is one track. `BOTH` on the teacher means they may create courses of either kind. Parent child cards (WF 17 "American Diploma Math") concatenate `COURSES.curriculum` + `subject_name`.
+- **`SUBJECTS` is the platform catalog.** The frontend never hardcodes subject names. `GET /subjects?curriculum=` returns the active rows for a track; signup and course-create pick from those ids. The same display name exists twice when it is offered on both tracks.
+- **`TEACHER_SUBJECTS` replaces the old `TEACHERS.subjects_taught` string.** WF 02 "Subject(s) taught" is a multi-select filtered by the curriculum chips (or unfiltered when the teacher chose `BOTH`).
+- **`TEACHERS.curriculum` is `IGCSE`, `AMERICAN_DIPLOMA`, or `BOTH` (WF 02).** **`COURSES.curriculum` is only `IGCSE` or `AMERICAN_DIPLOMA`** — a course is one track. `BOTH` on the teacher means they may create courses of either kind. Parent child cards (WF 17 "American Diploma Math") concatenate `COURSES.curriculum` + `SUBJECTS.name`.
 - **`USER_SESSIONS.remember_me`** is the WF 01 checkbox. It only lengthens `expires_at`; the access token is unchanged.
 - **`SUBSCRIPTION_PLANS.max_ta_seats`** is the second axis of plan sizing on WF 02, alongside `max_students`.
 - **`INVITES.revoked_by_user_id`** records who rescinded. A student-issued parent invite may be revoked by that student or by the instructor who owns the child's course.
