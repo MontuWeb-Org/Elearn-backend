@@ -80,4 +80,4 @@ site:
           default: true
           draft: true
           content:
-            directory: ./api-docs/api-docs
+            directory: ./docs/api
