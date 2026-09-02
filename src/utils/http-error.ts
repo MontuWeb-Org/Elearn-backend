@@ -3,11 +3,7 @@ export class HttpError extends Error {
   readonly code: string;
   readonly details?: unknown;
 
-  constructor(
-    statusCode: number,
-    message: string,
-    options?: { code?: string; details?: unknown },
-  ) {
+  constructor(statusCode: number, message: string, options?: { code?: string; details?: unknown }) {
     super(message);
     this.name = 'HttpError';
     this.statusCode = statusCode;
@@ -63,7 +59,11 @@ export class HttpError extends Error {
     return new HttpError(410, message, { code });
   }
 
-  static unprocessable(message = 'Unprocessable Entity', code = 'UNPROCESSABLE', details?: unknown): HttpError {
+  static unprocessable(
+    message = 'Unprocessable Entity',
+    code = 'UNPROCESSABLE',
+    details?: unknown,
+  ): HttpError {
     return new HttpError(422, message, { code, details });
   }
 
