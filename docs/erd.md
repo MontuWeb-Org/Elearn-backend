@@ -465,6 +465,7 @@ Mermaid cannot express these; they are part of the schema contract.
 | `ENROLLMENT_FEES` | `UNIQUE (student_id, group_id, period_start)` | One fee row per student per section per billing period |
 | `STUDENT_GROUPS`, `GROUP_ASSISTANTS`, `USER_ROLES`, `TEACHER_SUBJECTS` | composite PK | Already covered |
 | `SUBJECTS` | `UNIQUE (curriculum, name)` | Physics IGCSE and Physics American Diploma are two catalog rows |
+| `SUBJECTS` | `UNIQUE (curriculum, order_index)` | Catalog display order within a track. **Not in the API** — `GET /subjects` returns rows already sorted |
 
 ### CHECK constraints
 
@@ -654,7 +655,7 @@ COURSES (subject_id)
 - **`ENROLLMENT_FEES` is student → instructor money**, one row per student per group per billing period. Distinct from `SUBSCRIPTIONS` (instructor → platform). `COURSES.fees` is the price tag that seeds `amount`. `PAYMENTS` clears the row to `PAID` and is what the parent writes on WF 18.
 - **`USERS.full_name` is the only name field.** WF 02 and WF 04 capture one "Full name" input; greetings and roster cells render that string. There is no `first_name` / `last_name` split and no separate `display_name`. `avatar_url` is the chrome photo (WF 06, 13, 14).
 - **`INVITES.full_name` is the name the issuer types** (WF 13 modal: name + email; student/parent names are pre-set because WF 05 setup asks only for a password). Acceptance copies it onto `USERS.full_name` unless the accept body sends a different `full_name` (the TA screen does; student and parent screens do not).
-- **`SUBJECTS` is the platform catalog.** The frontend never hardcodes subject names. `GET /subjects?curriculum=` returns the active rows for a track; signup and course-create pick from those ids. The same display name exists twice when it is offered on both tracks.
+- **`SUBJECTS` is the platform catalog.** The frontend never hardcodes subject names. `GET /subjects?curriculum=` returns the active rows for a track, **already sorted**. `order_index` is storage-only and is not in the JSON. Signup and course-create pick from those ids. The same display name exists twice when it is offered on both tracks.
 - **`TEACHER_SUBJECTS` replaces the old `TEACHERS.subjects_taught` string.** WF 02 "Subject(s) taught" is a multi-select filtered by the curriculum chips (or unfiltered when the teacher chose `BOTH`).
 - **`TEACHERS.curriculum` is `IGCSE`, `AMERICAN_DIPLOMA`, or `BOTH` (WF 02).** **`COURSES.curriculum` is only `IGCSE` or `AMERICAN_DIPLOMA`** — a course is one track. `BOTH` on the teacher means they may create courses of either kind. Parent child cards (WF 17 "American Diploma Math") concatenate `COURSES.curriculum` + `SUBJECTS.name`.
 - **`USER_SESSIONS.remember_me`** is the WF 01 checkbox. It only lengthens `expires_at`; the access token is unchanged.

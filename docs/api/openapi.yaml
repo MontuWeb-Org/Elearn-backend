@@ -663,7 +663,7 @@ paths:
           $ref: '#/components/schemas/CourseCurriculum'
       responses:
         '200':
-          description: Active catalog rows, `order_index` ascending within each curriculum.
+          description: Active catalog rows, already sorted for display within each curriculum.
           content:
             application/json:
               schema:
@@ -776,8 +776,9 @@ paths:
       - Courses
       operationId: updateCourse
       summary: Update a course
-      description: "Rename, edit description, or change `status`.\n\n**Roles:** I  \n**Ownership scope:**\
-        \ own-course  \n**Wireframe:** 07\n\n**Status:** ✅ Specifiable — fully backed by the ERD."
+      description: "Rename, change `subject_id` / `curriculum` (must still match), edit description, or\
+        \ change `status`.\n\n**Roles:** I  \n**Ownership scope:** own-course  \n**Wireframe:** 07\n\n\
+        **Status:** ✅ Specifiable — fully backed by the ERD."
       parameters:
       - *id003
       requestBody:
@@ -797,6 +798,8 @@ paths:
           $ref: '#/components/responses/400'
         '404':
           $ref: '#/components/responses/404'
+        '422':
+          $ref: '#/components/responses/422'
         '401':
           $ref: '#/components/responses/401'
         '403':
@@ -4978,13 +4981,11 @@ components:
         name: *id021
         curriculum:
           $ref: '#/components/schemas/CourseCurriculum'
-        order_index: *id020
       required:
       - subject_id
       - name
       - curriculum
-      - order_index
-      description: One catalog row. Same display name on both tracks is two rows.
+      description: One catalog row. Same display name on both tracks is two rows. Array order is display order; `order_index` is not exposed.
     Course:
       type: object
       properties:

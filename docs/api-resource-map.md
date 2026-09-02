@@ -232,7 +232,7 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 |---|---|---|---|---|---|---|
 | GET | `/subjects` | Catalog for the curriculum filter. `?curriculum=IGCSE` / `AMERICAN_DIPLOMA`; omit for both | `—` | — | 02, 07 | ✅ |
 
-**Notes.** Same display name on both tracks is two rows. Writes (`POST /auth/register`, `POST /courses`) take `subject_id` / `subject_ids` from this list. Mismatch with the teacher's or course's curriculum is `422 SUBJECT_CURRICULUM_MISMATCH`.
+**Notes.** Same display name on both tracks is two rows. The list is already sorted; there is no `order_index` in the JSON. Writes (`POST /auth/register`, `PATCH /me/profile`, `POST /courses`, `PATCH /courses/{id}`) take `subject_id` / `subject_ids` from this list. Mismatch with the teacher's or course's curriculum is `422 SUBJECT_CURRICULUM_MISMATCH`.
 
 ### 5.4 Curriculum: courses — R5
 
@@ -241,11 +241,11 @@ It is also what WF 04 renders. "Mr. Ahmed invited you as a Teaching Assistant" i
 | GET | `/courses` | Instructor's courses. Filters: `status`, `grade_level` | `I` `A` | `own-course` / `assigned-group` | 06, 07 | ✅ |
 | POST | `/courses` | Create course (`subject_id` from `GET /subjects`) | `I` | `self` | 02, 07 | ✅ |
 | GET | `/courses/{courseId}` | Course header — WF 07's "IG Physics — Term 1" | `I` `A` | `own-course` | 07 | ✅ |
-| PATCH | `/courses/{courseId}` | Rename, edit description, change `status` | `I` | `own-course` | 07 | ✅ |
+| PATCH | `/courses/{courseId}` | Change `subject_id` / `curriculum` (must match), description, `status` | `I` | `own-course` | 07 | ✅ |
 | DELETE | `/courses/{courseId}` | Cascades the curriculum spine (`ERD:465-496`) | `I` | `own-course` | — | ⚠️ |
 | GET | `/courses/{courseId}/tree` | **The builder read.** Chapters + lessons + counts + publish state in one call | `I` `A` | `own-course` | 07 | ✅ |
 
-**Notes.** `DELETE` is ⚠️ — no screen offers it and `GAP D26` flags deletion-vs-archival as undecided. Document it as existing but note that the UI exposes no path to it. `/tree` includes `LESSONS.status`.
+**Notes.** `DELETE` is ⚠️ — no screen offers it and `GAP D26` flags deletion-vs-archival as undecided. Document it as existing but note that the UI exposes no path to it. `/tree` includes `LESSONS.status`. `subject_name` on course reads is a join of `SUBJECTS.name`; writes take `subject_id` only.
 
 ### 5.5 Curriculum: chapters — R6
 

@@ -14,7 +14,7 @@ sends those ids as `subject_ids`; course create sends one as `subject_id`.
 
 1. User picks a curriculum chip (`IGCSE`, `American Diploma`, or `Both`).
 2. `GET /subjects?curriculum=IGCSE` — or omit the query for both tracks when they chose `Both`.
-3. Render the names. Submit the `subject_id` values, never the labels.
+3. Render the names **in array order**. Submit the `subject_id` values, never the labels. Do not send `order_index` — it is not in this response.
 
 ```http
 GET /api/v1/subjects?curriculum=IGCSE
@@ -25,8 +25,7 @@ GET /api/v1/subjects?curriculum=IGCSE
   {
     "subject_id": "9f2a1c4e-...",
     "name": "Physics",
-    "curriculum": "IGCSE",
-    "order_index": 3
+    "curriculum": "IGCSE"
   }
 ]
 ```
