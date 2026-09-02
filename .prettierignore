@@ -2,3 +2,12 @@ node_modules
 dist
 coverage
 package-lock.json
+
+# .prettierignore
+docs/
+documentation/
+changelog/
+api-docs/
+help-center/
+home/
+*.md
