@@ -65,6 +65,5 @@ site:
           title: API Docs
           path: api-docs
           default: true
-          draft: true
           content:
             directory: ./docs/api
