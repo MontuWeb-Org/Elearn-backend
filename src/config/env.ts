@@ -15,6 +15,15 @@ const envSchema = z.object({
   DATABASE_CA_CERT: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .union([z.boolean(), z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')])
+    .default(false)
+    .transform((value) => value === true || value === 'true' || value === '1'),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  SMTP_FROM: z.string().min(1).default('Montu <noreply@localhost>'),
 });
 
 const parsed = envSchema.safeParse(process.env);

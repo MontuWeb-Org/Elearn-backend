@@ -10,7 +10,11 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma.config.ts', 'scripts/db-check.ts'],
+          allowDefaultProject: [
+            'prisma.config.ts',
+            'scripts/db-check.ts',
+            'scripts/seed-local-user.ts',
+          ],
         },
         tsconfigRootDir: import.meta.dirname,
       },

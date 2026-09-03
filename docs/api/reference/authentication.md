@@ -35,7 +35,7 @@ Refresh **rotates**: `POST /auth/refresh` hashes the presented token, finds the 
 
 Three calls, matching three screens:
 
-1. Email → OTP mailed  
+1. Email → OTP mailed (SMTP when `SMTP_HOST` is set; development also logs the code)
 2. OTP verified → `reset_token`  
 3. New password using that token  
 

@@ -12,8 +12,9 @@ Backend API for the Montu Elearn platform — Node.js, Express 5, TypeScript, Pr
 ```bash
 npm install
 cp .env.example .env          # then fill in DATABASE_URL
-docker compose up -d postgres # or point DATABASE_URL at your own instance
+docker compose up -d postgres mailpit # or point DATABASE_URL at your own instance
 npm run db:migrate            # applies prisma/migrations
+npm run db:seed               # you@example.com / Password1! (instructor)
 npm run db:check              # verifies the PostgreSQL connection
 npm run dev
 ```
@@ -32,7 +33,9 @@ Import these two files (File → Import), then pick **Elearn Local** in the envi
 - `postman/Elearn-API.postman_collection.json` — live endpoints only
 - `postman/Elearn-Local.postman_environment.json` — `baseUrl`, email, password, tokens
 
-Set `email` / `password` to a user that already exists in the database, then run **Auth → Login**. That request stores `access_token` so Bearer routes work.
+After `npm run db:seed`, **Elearn Local** already matches `you@example.com` / `Password1!`. Run **Auth → Login**. That request stores `access_token` so Bearer routes work.
+
+Forgot-password OTPs go to Mailpit at http://localhost:8025 when `SMTP_HOST` is set. Development also logs the code in the API terminal.
 
 Do not import `docs/api/openapi.yaml` into Postman — it is OpenAPI 3.1 and Postman often rejects it.
 
@@ -53,6 +56,7 @@ Do not import `docs/api/openapi.yaml` into Postman — it is OpenAPI 3.1 and Pos
 | `npm run db:deploy`    | Apply pending migrations (CI/production) |
 | `npm run db:studio`    | Prisma Studio                            |
 | `npm run db:check`     | Standalone PostgreSQL connectivity check |
+| `npm run db:seed`      | Local instructor `you@example.com` / `Password1!` |
 
 ## Project structure
 
