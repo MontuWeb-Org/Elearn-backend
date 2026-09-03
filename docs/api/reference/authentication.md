@@ -5,7 +5,7 @@ One login serves all four tiers. The server resolves the caller's role and retur
 **Only instructors self-register.** TA, student and parent accounts are always created by an invite — see [Invites](invites.md).
 
 {% hint style="info" %}
-11 operations — **all ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
+12 operations — **all ready**. Each operation states its own status; see [Specification status](../concepts/status.md) for what the labels mean.
 {% endhint %}
 
 ## Implementation contract
@@ -33,15 +33,25 @@ Refresh **rotates**: `POST /auth/refresh` hashes the presented token, finds the 
 
 ### Password-reset OTP
 
+Three calls, matching three screens:
+
+1. Email → OTP mailed  
+2. OTP verified → `reset_token`  
+3. New password using that token  
+
 | Rule | Value |
 |---|---|
 | Form | 6 digits, cryptographically random (`000000`–`999999`) |
-| Storage | **Cache**, not a table. Key `pwdreset:{userId}`. Value is SHA-256 hex of the code plus an attempt counter |
-| TTL | **10 minutes** |
-| Attempts | **5** failed checks evict the key |
-| New request | Replaces the live entry (new hash, TTL restart, attempts reset) |
+| Storage | **Cache**, not a table. Key `pwdreset:{userId}` |
+| After forgot | Value is SHA-256 hex of the OTP plus an attempt counter |
+| After verify | OTP is **deleted**. Value is SHA-256 hex of a one-time `reset_token` |
+| TTL | **10 minutes** from forgot; **restarts 10 minutes** on successful verify |
+| Attempts | **5** failed OTP checks evict the key |
+| New forgot | Replaces the live entry (new OTP, TTL restart, attempts reset). Invalidates any unused `reset_token` |
 | `POST /auth/password/forgot` | **Always `202`**. Missing accounts are not distinguishable from sent codes |
-| Wrong code / unknown email | `401 INVALID_OTP` — never distinguished |
+| `POST /auth/password/otp/verify` | `email` + `otp` → `{ reset_token, expires_in: 600 }` |
+| `POST /auth/password/reset` | `email` + `reset_token` + `password`. Does **not** take the OTP |
+| Wrong code / unknown email / bad token | `401 INVALID_OTP` — never distinguished |
 | Expired, used, or locked | `410 OTP_EXPIRED` |
 | Success | Set the password, **delete the cache key**, **revoke every `USER_SESSIONS` row** for that user |
 
@@ -73,7 +83,7 @@ Any other field in the body is `422 FIELD_NOT_ALLOWED`. Email is not editable.
 | Code | Status | When |
 |---|---|---|
 | `INVALID_CREDENTIALS` | 401 | Bad login, bad refresh, or wrong password on an existing-account invite accept |
-| `INVALID_OTP` | 401 | Wrong reset code, or no matching account |
+| `INVALID_OTP` | 401 | Wrong reset code, unknown email, or bad `reset_token` |
 | `OTP_EXPIRED` | 410 | Reset code expired, already used, or locked |
 | `ACCOUNT_DISABLED` | 403 | Password matched, `is_active` is false |
 | `EMAIL_TAKEN` | 409 | `POST /auth/register` when the address already exists |
@@ -121,6 +131,13 @@ https://raw.githubusercontent.com/MontuWeb-Org/Elearn-backend/main/docs/api/open
 ## Request a password reset
 
 {% openapi src="https://raw.githubusercontent.com/MontuWeb-Org/Elearn-backend/main/docs/api/openapi.yaml" path="/auth/password/forgot" method="post" %}
+https://raw.githubusercontent.com/MontuWeb-Org/Elearn-backend/main/docs/api/openapi.yaml
+{% endopenapi %}
+
+
+## Verify the reset OTP
+
+{% openapi src="https://raw.githubusercontent.com/MontuWeb-Org/Elearn-backend/main/docs/api/openapi.yaml" path="/auth/password/otp/verify" method="post" %}
 https://raw.githubusercontent.com/MontuWeb-Org/Elearn-backend/main/docs/api/openapi.yaml
 {% endopenapi %}
 

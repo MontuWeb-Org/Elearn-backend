@@ -183,7 +183,8 @@ Consequences:
 | POST | `/auth/register` | Instructor self-signup, step 1 of 3. Creates `USERS` + `TEACHERS` + `USER_ROLES(TEACHER)` | `—` | — | 02 | ✅ |
 | GET | `/auth/me` | Current user, roles, routing target | all | `self` | all | ✅ |
 | POST | `/auth/password/forgot` | Email a 6-digit OTP. **Uniform 202 whether or not the email exists** (`WF 03`). Replaces any live OTP for that user | `—` | — | 03 | ✅ |
-| POST | `/auth/password/reset` | `email` + `otp` + new password. No token. Wrong or unknown email both return `401 INVALID_OTP` | `—` | — | 03 | ✅ |
+| POST | `/auth/password/otp/verify` | `email` + `otp` → one-time `reset_token`. Then show the new-password screen | `—` | — | 03 | ✅ |
+| POST | `/auth/password/reset` | `email` + `reset_token` + new password. OTP is not sent again | `—` | — | 03 | ✅ |
 | GET | `/me/profile` | Profile tab | all | `self` | 13, 19 | ✅ |
 | PATCH | `/me/profile` | Edit profile (`full_name`, `avatar_url`, `subject_ids`, `curriculum`) | all | `self` | 13, 19 | ✅ |
 | GET | `/me/sessions` | Active devices — non-revoked `USER_SESSIONS` | all | `self` | — | ✅ |
@@ -545,7 +546,7 @@ The checklist for the per-page docs. Each row becomes one `## NN - Screen Name` 
 |---|---|---|---|
 | 01 | Login `s-login` | `POST /auth/login`, `POST /auth/refresh` | `E17` one-role routing |
 | 02 | Instructor sign-up `s-signup` | `GET /subjects`, `POST /auth/register`, `GET /plans`, `POST /subscriptions` | — |
-| 03 | Forgot password `s-forgot` | `POST /auth/password/forgot`, `POST /auth/password/reset` | — OTP in cache |
+| 03 | Forgot password `s-forgot` | `POST /auth/password/forgot`, `POST /auth/password/otp/verify`, `POST /auth/password/reset` | — OTP in cache |
 | 04 | TA invite `s-tainvite` | `GET /invite-tokens/{token}`, `POST /invite-tokens/{token}/accept` | `D39` |
 | 05 | Parent/student invite `s-familyinvite` | same, role-shaped; student-issued parent invites use `POST /invites` | `D39` |
 | 06 | Instructor dashboard `s-idash` | `GET /dashboards/instructor`, `GET /live-sessions?from=today`, `GET /grading/queue` | `C3` |
@@ -658,7 +659,7 @@ Codes the per-page docs reference instead of restating rules.
 |---|---|---|
 | `INVALID_CREDENTIALS` | `401` | Never distinguishes unknown email from wrong password |
 | `TOKEN_EXPIRED` | `401` | Invite links |
-| `INVALID_OTP` | `401` | Wrong reset code, or no matching account — never distinguished |
+| `INVALID_OTP` | `401` | Wrong reset code, unknown email, or bad `reset_token` — never distinguished |
 | `OTP_EXPIRED` | `410` | Reset code expired, already used, or locked after too many attempts |
 | `INSUFFICIENT_SCOPE` | `403` | Right role, wrong ownership or missing permission flag — a TA outside assigned groups, or one without `can_grade` hitting the queue |
 

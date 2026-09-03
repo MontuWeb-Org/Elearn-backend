@@ -199,11 +199,18 @@ paths:
       - Authentication
       operationId: forgotPassword
       summary: Request a password reset
-      description: "Emails a 6-digit OTP. **Always returns 202**, whether or not the address matches an\
-        \ account — leaking account existence is the failure mode here (WF 03). A new request replaces\
-        \ any live OTP for that user (new hash, new expiry, attempt count reset).\n\n**Roles:** —  \n\
-        **Ownership scope:** —  \n**Wireframe:** 03\n\n**Status:** \u2705 Specifiable — fully backed by\
-        \ the ERD. The OTP is stored in cache, not a table."
+      description: |-
+        Emails a 6-digit OTP. **Always returns 202**, whether or not the address matches an account —
+        leaking account existence is the failure mode here (WF 03). A new request replaces any live OTP
+        or unused reset token for that user (new hash, new expiry, attempt count reset).
+
+        **Screen 1** of the forgot-password flow. The client then shows the OTP field.
+
+        **Roles:** —  
+        **Ownership scope:** —  
+        **Wireframe:** 03
+
+        **Status:** ✅ Specifiable — fully backed by the ERD. The OTP is stored in cache, not a table.
       security: []
       requestBody:
         required: true
@@ -218,17 +225,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Empty'
+  /auth/password/otp/verify:
+    post:
+      tags:
+      - Authentication
+      operationId: verifyPasswordOtp
+      summary: Verify the password-reset OTP
+      description: |-
+        **Screen 2.** Checks the 6-digit code from the email. On success the OTP is consumed and the
+        response carries a one-time `reset_token`. The client then shows the new-password screen.
+
+        A wrong code and an unknown email both return `401 INVALID_OTP`. An expired, already-used,
+        or locked code returns `410 OTP_EXPIRED` and the screen offers to resend (WF 03).
+
+        **Roles:** —  
+        **Ownership scope:** —  
+        **Wireframe:** 03
+
+        **Status:** ✅ Specifiable — fully backed by the ERD. The OTP is stored in cache, not a table.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPasswordOtpRequest'
+      responses:
+        '200':
+          description: OTP accepted. Use `reset_token` on the next call.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyPasswordOtpResponse'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '410':
+          $ref: '#/components/responses/410'
   /auth/password/reset:
     post:
       tags:
       - Authentication
       operationId: resetPassword
       summary: Reset a password
-      description: "Consumes the emailed OTP and sets a new password. Body is `email` + `otp` + `password`\
-        \ — there is no reset token. A wrong code and an unknown email both return `401 INVALID_OTP`.\
-        \ An expired, already-used, or locked code returns `410 OTP_EXPIRED` and the screen offers to\
-        \ resend (WF 03).\n\n**Roles:** —  \n**Ownership scope:** —  \n**Wireframe:** 03\n\n**Status:**\
-        \ \u2705 Specifiable — fully backed by the ERD. The OTP is stored in cache, not a table."
+      description: |-
+        **Screen 3.** Sets the new password using the `reset_token` from `POST /auth/password/otp/verify`.
+        The OTP is not sent again. A bad or unknown token returns `401 INVALID_OTP`. An expired or
+        already-used token returns `410 OTP_EXPIRED`.
+
+        On success the cache key is deleted and every `USER_SESSIONS` row for that user is revoked.
+
+        **Roles:** —  
+        **Ownership scope:** —  
+        **Wireframe:** 03
+
+        **Status:** ✅ Specifiable — fully backed by the ERD. The OTP is stored in cache, not a table.
       security: []
       requestBody:
         required: true
@@ -4817,7 +4869,7 @@ components:
           format: email
       required:
       - email
-    ResetPasswordRequest:
+    VerifyPasswordOtpRequest:
       type: object
       properties:
         email:
@@ -4826,14 +4878,38 @@ components:
         otp:
           type: string
           pattern: '^[0-9]{6}$'
-          description: The 6-digit code emailed by `POST /auth/password/forgot`. Not a token.
+          description: The 6-digit code emailed by `POST /auth/password/forgot`.
+      required:
+      - email
+      - otp
+    VerifyPasswordOtpResponse:
+      type: object
+      properties:
+        reset_token:
+          type: string
+          description: Opaque one-time token. Send it to `POST /auth/password/reset`. Not the OTP.
+        expires_in:
+          type: integer
+          description: Seconds until the token expires. Always 600 (10 minutes from verify).
+      required:
+      - reset_token
+      - expires_in
+    ResetPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        reset_token:
+          type: string
+          description: From `POST /auth/password/otp/verify`. Not the 6-digit OTP.
         password:
           type: string
           format: password
           minLength: 8
       required:
       - email
-      - otp
+      - reset_token
       - password
     Profile:
       type: object

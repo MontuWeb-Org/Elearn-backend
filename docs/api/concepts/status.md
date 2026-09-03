@@ -25,7 +25,7 @@ proposal to be reviewed, not a contract to build against.
 
 | Group | ✅ Ready | ⚠️ Decision | 🚫 Blocked |
 |---|---|---|---|
-| [Authentication](../reference/authentication.md) | 11 | 0 | 0 |
+| [Authentication](../reference/authentication.md) | 12 | 0 | 0 |
 | [Invites](../reference/invites.md) | 5 | 0 | 0 |
 | [Billing](../reference/billing.md) | 2 | 2 | 0 |
 | [Subjects](../reference/subjects.md) | 1 | 0 | 0 |
@@ -49,7 +49,7 @@ proposal to be reviewed, not a contract to build against.
 | [Parent portal](../reference/parents.md) | 5 | 1 | 0 |
 | [Notifications](../reference/notifications.md) | 2 | 0 | 0 |
 | [Student portal](../reference/student.md) | 6 | 0 | 0 |
-| **Total** | **123** | **14** | **2** |
+| **Total** | **124** | **14** | **2** |
 
 ## What is blocked, and why
 

@@ -152,7 +152,7 @@ These must be computed server-side and documented as response fields, not stored
 | ~~G2~~ | ✅ **RESOLVED.** `ENROLLMENT_FEES` + `PAYMENTS` | student × group × monthly period, distinct from `SUBSCRIPTIONS` | `WF #s-fees`, `#s-pchild` |
 | ~~G3~~ | ✅ **RESOLVED.** `LESSONS.status DRAFT/PUBLISHED` | `WF #s-curriculum`, `#s-lesson` | — |
 | ~~G4~~ | ✅ **RESOLVED.** `INVITES` + `INVITE_GROUPS` | `ERD:76-88`, `ERD:90-96`, `ERD:417-428` | Issuer is a `USERS` fk, not `TEACHERS`, so a student can invite their own parent (WF 05). `INVITE_GROUPS` stores group scope only; TA permission flags are granted after acceptance. Four questions remain open — see `ERD` Open Question 6 |
-| ~~G5~~ | ✅ **RESOLVED.** Password-reset OTP in **cache**, not a table | `WF #s-forgot` | Hashed 6-digit code, 10-minute TTL, 5 attempts. Reset body is `email` + `otp` + `password` |
+| ~~G5~~ | ✅ **RESOLVED.** Password-reset OTP in **cache**, not a table | `WF #s-forgot` | Forgot → verify OTP → `reset_token` → new password. 10-minute TTL, 5 attempts |
 | ~~G6~~ | ✅ **RESOLVED** — three permission booleans + `is_revoked` on `GROUP_ASSISTANTS`. Flags **default false**; granted after the TA accepts (WF 13 Edit), not stored on `INVITE_GROUPS` | `ERD` vs `WF #s-isettings`, `#s-tainvite` | Invite collects section scope; Edit after activation collects attendance / grading / homework upload |
 | ~~G7~~ | ✅ **RESOLVED.** `MATERIALS.access_mode`, `size_bytes`, `mime_type` | `WF #s-content` | — |
 | ~~G8~~ | **Dropped.** No view-log tables. `max_watch_limit` stays on `RECORDED_SESSIONS` but is not enforced | `WF #s-lesson` | Roster "viewed" and watch caps are out of schema |

@@ -84,7 +84,7 @@ or the status.
 |---|---|---|
 | `UNAUTHENTICATED` | `401` | Missing, malformed, expired, or revoked access token |
 | `INVALID_CREDENTIALS` | `401` | Login, refresh, or existing-account invite accept — never distinguishes unknown email from a wrong password |
-| `INVALID_OTP` | `401` | Wrong reset code, or no matching account — never distinguished |
+| `INVALID_OTP` | `401` | Wrong reset code, unknown email, or bad `reset_token` — never distinguished |
 | `OTP_EXPIRED` | `410` | Reset code expired, already used, or locked after too many attempts |
 | `ACCOUNT_DISABLED` | `403` | Password matched, `USERS.is_active` is false |
 | `EMAIL_TAKEN` | `409` | Register (or a create-on-accept race) against an existing address |
