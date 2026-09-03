@@ -11,3 +11,4 @@ api-docs/
 help-center/
 home/
 *.md
+tests/.env.test
