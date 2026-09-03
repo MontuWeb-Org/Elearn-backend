@@ -9,21 +9,64 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
+enum RoleName {
+  TEACHER
   STUDENT
-  INSTRUCTOR
+  ASSISTANT
+  PARENT
   ADMIN
 }
 
-/// Placeholder domain model that gives the initial migration something real to
-/// create, and proves the PostgreSQL connection end to end.
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  name      String
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  dateJoined   DateTime  @default(now()) @map("date_joined")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  roles    UserRole[]
+  sessions UserSession[]
 
   @@map("users")
+}
+
+model Role {
+  id   String   @id @default(uuid()) @map("role_id") @db.Uuid
+  name RoleName @unique
+
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// Refresh-token session. Access JWTs carry `sid` = `user_session_id`.
+model UserSession {
+  id               String   @id @default(uuid()) @map("user_session_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  refreshTokenHash String   @unique @map("refresh_token_hash")
+  userAgent        String?  @map("user_agent")
+  ipAddress        String?  @map("ip_address")
+  rememberMe       Boolean  @default(false) @map("remember_me")
+  isRevoked        Boolean  @default(false) @map("is_revoked")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked])
+  @@map("user_sessions")
 }

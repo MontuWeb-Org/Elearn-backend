@@ -1,5 +1,5 @@
-import { isDatabaseHealthy } from '../config/database.js';
-import { env } from '../config/env.js';
+import { isDatabaseHealthy } from '../../config/database.js';
+import { env } from '../../config/env.js';
 
 export interface HealthReport {
   status: 'ok' | 'degraded';

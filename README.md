@@ -25,6 +25,17 @@ The API is served under `/api/v1`. Health endpoints:
 | GET    | `/api/v1/health`       | Liveness — the process is up                  |
 | GET    | `/api/v1/health/ready` | Readiness — PostgreSQL reachable (503 if not) |
 
+## Postman
+
+Import these two files (File → Import), then pick **Elearn Local** in the environment dropdown:
+
+- `postman/Elearn-API.postman_collection.json` — live endpoints only
+- `postman/Elearn-Local.postman_environment.json` — `baseUrl`, email, password, tokens
+
+Set `email` / `password` to a user that already exists in the database, then run **Auth → Login**. That request stores `access_token` so Bearer routes work.
+
+Do not import `docs/api/openapi.yaml` into Postman — it is OpenAPI 3.1 and Postman often rejects it.
+
 ## Scripts
 
 | Script                 | What it does                             |
@@ -49,24 +60,23 @@ The API is served under `/api/v1`. Health endpoints:
 src/
   app.ts                 Express app assembly (middleware + routes)
   server.ts              Process entry: connect DB, listen, graceful shutdown
-  config/
-    env.ts               Zod-validated environment variables
-    database.ts          Prisma client, connect/disconnect, health probe
-  controllers/           HTTP layer — request in, response out
-  services/              Business logic, no Express types
+  config/                Env, Prisma client, in-memory cache
+  modules/               Feature modules (routes, controllers, services, schemas)
+    auth/
+    health/
+  middleware/            Auth, validation, logging, 404, error handler
   models/                Barrel over Prisma-generated model types
-  routes/                Router definitions, mounted in routes/index.ts
-  middleware/            Request logging, 404, central error handler
-  utils/                 Logger, HttpError, async handler
-  scripts/               One-off operational scripts
-  types/                 Shared ambient/domain types
+  routes/                API aggregator — mounts feature routers under /api/v1
+  types/                 Shared domain and Express types
+  utils/                 Logger, HttpError, crypto, pagination, constants
+scripts/                 Operational scripts (db-check, docs bootstrap)
 prisma/
   schema.prisma          Data model
   migrations/            Versioned SQL migrations
 ```
 
-Adding a feature usually means: `prisma/schema.prisma` → migration → `services/` →
-`controllers/` → `routes/`, then mount the router in `src/routes/index.ts`.
+Adding a feature usually means: `prisma/schema.prisma` → migration → a folder under
+`src/modules/<feature>/`, then mount its router in `src/routes/index.ts`.
 
 ## Configuration
 

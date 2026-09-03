@@ -2,8 +2,8 @@
  * Standalone PostgreSQL connectivity check.
  * Run with `npm run db:check` — exits 0 when the database answers, 1 otherwise.
  */
-import { connectDatabase, disconnectDatabase, prisma } from '../config/database.js';
-import { logger } from '../utils/logger.js';
+import { connectDatabase, disconnectDatabase, prisma } from '../src/config/database.js';
+import { logger } from '../src/utils/index.js';
 
 const main = async (): Promise<void> => {
   await connectDatabase();

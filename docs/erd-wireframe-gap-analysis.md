@@ -48,7 +48,7 @@ A findings list only — no proposed fixes. Ref keys: `ERD` = `docs/erd.md` (lin
 | B5 | `RECORDED_SESSIONS.publish_at`, `deadline`, `max_watch_limit`, `duration_seconds`, `order_index` | `ERD:154-166` | No screen sets these; the student lesson view shows an undifferentiated "🎬 Recording" link (`WF 20 s-lesson`). `duration_seconds` may back the "(42 min)" label in `WF 08 s-content` |
 | B6 | `RECORDED_SESSIONS.recorded_from_live_session_id` | `ERD:154-166` | No UI links a recording back to the live class it came from, and no screen shows a session's recording after the fact |
 | B7 | `STUDENTS.student_code`, `school_name`, `grade_level` | `ERD:58-63` | Never captured (student invite asks only for a password, `WF 05 s-familyinvite`) and never displayed |
-| B8 | `USERS.age`, `is_active`, `date_joined`, `last_login_at` | `ERD:19-29` | Not captured or displayed on any screen |
+| B8 | `USERS.is_active`, `date_joined`, `last_login_at` | `ERD:19-29` | Not captured or displayed on any screen |
 | B9 | `TEACHERS.bio` | `ERD:52-56` | No instructor public profile screen |
 | B10 | `COURSES.course_code`, `description`, `grade_level`, `status DRAFT/ACTIVE/ARCHIVED` | `ERD:127-136` | The builder shows the chapter/lesson tree only (`WF 07 s-curriculum`); course-level status never appears |
 | B11 | `CHAPTERS.description`, `LESSONS.description` | `ERD:138-152` | Not present in any layout |

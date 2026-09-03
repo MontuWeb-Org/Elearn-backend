@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { getHealthReport } from '../services/health.service.js';
-import { asyncHandler } from '../utils/async-handler.js';
+import { asyncHandler } from '../../utils/index.js';
+import { getHealthReport } from './health.service.js';
 
 /** Liveness: the process is up and serving. */
 export const live = (_req: Request, res: Response): void => {

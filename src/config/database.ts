@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { env, isProduction } from './env.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '../utils/index.js';
 
 /**
  * Some managed providers (Supabase among them) serve TLS from a private root CA

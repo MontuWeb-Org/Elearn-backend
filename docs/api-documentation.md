@@ -151,7 +151,7 @@ Quick field reference per table, ERD field names preserved exactly. New/extended
 <summary><b>Identity & access</b> — USERS, ROLES, USER_ROLES, USER_SESSIONS, TEACHERS, STUDENTS, PARENT_STUDENTS†</summary>
 
 ```
-USERS(id, email, password_hash, first_name, last_name, age, is_active, date_joined, last_login_at)
+USERS(id, email, password_hash, first_name, last_name, is_active, date_joined, last_login_at)
 ROLES(role_id, name)                          -- enum: instructor | ta | parent | student
 USER_ROLES(user_id, role_id)
 USER_SESSIONS(user_session_id, user_id, refresh_token_hash, user_agent, ip_address, is_revoked, expires_at, created_at)

@@ -28,7 +28,6 @@ erDiagram
         string password_hash
         string full_name
         string avatar_url
-        int age
         boolean is_active
         timestamp date_joined
         timestamp last_login_at

@@ -1,0 +1,341 @@
+{
+  "info": {
+    "_postman_id": "7c4e8a12-3b9f-4d21-9e6a-2f8c1b0d4e57",
+    "name": "Elearn API (live)",
+    "description": "Implemented /api/v1 endpoints only. Import this file and Elearn-Local.postman_environment.json, then select Elearn Local.\n\nLogin saves access_token and refresh_token. Authenticated requests send Bearer {{access_token}}.\n\nPassword-reset OTP is logged in the API terminal in development. Paste it into the otp variable, then run Verify OTP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1", "type": "string" },
+    { "key": "email", "value": "you@example.com", "type": "string" },
+    { "key": "password", "value": "Password1!", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "refresh_token", "value": "", "type": "string" },
+    { "key": "otp", "value": "", "type": "string" },
+    { "key": "reset_token", "value": "", "type": "string" },
+    { "key": "session_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Process is up. 200 { status: ok }."
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            },
+            "description": "200 when PostgreSQL answers, 503 when it does not."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "packages": {},
+                "exec": [
+                  "if (pm.response.code !== 200) { return; }",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', body.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "try {",
+                  "  pm.environment.set('access_token', body.access_token);",
+                  "  pm.environment.set('refresh_token', body.refresh_token);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"remember_me\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Saves access_token and refresh_token on 200. Wrong email/password is 401 INVALID_CREDENTIALS. Inactive account is 403 ACCOUNT_DISABLED."
+          },
+          "response": []
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Bearer required. Returns profile, roles, and routing_target."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "packages": {},
+                "exec": [
+                  "if (pm.response.code !== 200) { return; }",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', body.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "try {",
+                  "  pm.environment.set('access_token', body.access_token);",
+                  "  pm.environment.set('refresh_token', body.refresh_token);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Rotates the refresh token and saves the new pair. Reused or unknown token is 401 INVALID_CREDENTIALS."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Revokes the current session. 204 empty body."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Password reset",
+      "item": [
+        {
+          "name": "Forgot password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/forgot",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "forgot"]
+            },
+            "description": "Always 202. Unknown emails are not distinguishable from sent codes. Copy the OTP from the API terminal."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "packages": {},
+                "exec": [
+                  "if (pm.response.code !== 200) { return; }",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('reset_token', body.reset_token);",
+                  "try { pm.environment.set('reset_token', body.reset_token); } catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/otp/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "otp", "verify"]
+            },
+            "description": "Set otp from the server log, then send. 200 saves reset_token. Wrong code is 401 INVALID_OTP. Expired or locked is 410 OTP_EXPIRED."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"reset_token\": \"{{reset_token}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "reset"]
+            },
+            "description": "Sets the new password (min 8 chars), revokes every session, 204. Does not take the OTP."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "List sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "packages": {},
+                "exec": [
+                  "if (pm.response.code !== 200) { return; }",
+                  "const body = pm.response.json();",
+                  "const rows = Array.isArray(body.data) ? body.data : [];",
+                  "const pick = rows.find((row) => !row.is_current) || rows[0];",
+                  "if (!pick) { return; }",
+                  "pm.collectionVariables.set('session_id', pick.user_session_id);",
+                  "try { pm.environment.set('session_id', pick.user_session_id); } catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/sessions?limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "sessions"],
+              "query": [
+                { "key": "limit", "value": "25" },
+                { "key": "cursor", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Bearer required. Saves session_id from a listed row (prefers a non-current session)."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke session",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/sessions/{{session_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "sessions", "{{session_id}}"]
+            },
+            "description": "Revokes session_id. 204. Unknown or already revoked is 404."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

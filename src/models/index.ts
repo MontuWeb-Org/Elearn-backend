@@ -3,5 +3,5 @@
  * the rest of the app imports them from, so call sites never reach into
  * `@prisma/client` directly.
  */
-export type { Prisma, User } from '@prisma/client';
-export { Role } from '@prisma/client';
+export type { Prisma, Role, User, UserRole, UserSession } from '@prisma/client';
+export { RoleName } from '@prisma/client';

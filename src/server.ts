@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { logger } from './utils/logger.js';
+import { logger } from './utils/index.js';
 
 const shutdown = (server: Server, signal: string): void => {
   logger.info(`${signal} received, shutting down`);

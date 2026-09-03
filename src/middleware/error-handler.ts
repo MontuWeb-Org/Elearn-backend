@@ -1,9 +1,8 @@
 import type { ErrorRequestHandler } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
-import { HttpError } from '../utils/http-error.js';
 import { isProduction } from '../config/env.js';
-import { logger } from '../utils/logger.js';
+import { HttpError, logger } from '../utils/index.js';
 
 interface ErrorBody {
   error: {

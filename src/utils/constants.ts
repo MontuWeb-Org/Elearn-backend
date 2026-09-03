@@ -1,0 +1,8 @@
+export const ACCESS_TOKEN_TTL_SECONDS = 900;
+
+export const REFRESH_TOKEN_TTL_DAYS = 7;
+export const REFRESH_TOKEN_REMEMBER_TTL_DAYS = 30;
+
+export const PASSWORD_RESET_TTL_SECONDS = 600;
+export const PASSWORD_RESET_MAX_ATTEMPTS = 5;
+export const PASSWORD_RESET_CACHE_PREFIX = 'pwdreset:';

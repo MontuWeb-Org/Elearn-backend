@@ -55,6 +55,10 @@ Three calls, matching three screens:
 | Expired, used, or locked | `410 OTP_EXPIRED` |
 | Success | Set the password, **delete the cache key**, **revoke every `USER_SESSIONS` row** for that user |
 
+{% hint style="warning" %}
+**Cache is in-process today — Redis later.** OTPs live in the `Map` in `src/config/cache.ts`, not Redis. Restarting the API wipes pending codes. A second instance will not see OTPs issued by the first (verify looks like `410 OTP_EXPIRED`). Before running more than one replica, swap that module for Redis (same `get` / `set` / `update` / `delete`, 10 min TTL). Do not change `password-reset.service.ts`.
+{% endhint %}
+
 ### Session rows
 
 Login, register, and invite-accept each insert one `USER_SESSIONS` row (`user_agent` and `ip_address` from the request, `remember_me` false unless login sent it).
