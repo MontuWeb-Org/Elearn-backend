@@ -46,7 +46,10 @@ Do not import `docs/api/openapi.yaml` into Postman — it is OpenAPI 3.1 and Pos
 | `npm run dev`          | Watch-mode dev server (tsx)              |
 | `npm run build`        | `prisma generate` + `tsc` into `dist/`   |
 | `npm start`            | Run the compiled server from `dist/`     |
-| `npm run typecheck`    | Type-check without emitting              |
+| `npm test`             | Jest suite (no database required)        |
+| `npm run test:watch`   | Jest in watch mode                       |
+| `npm run test:coverage` | Jest with a coverage report             |
+| `npm run typecheck`    | Type-check `src/` and `tests/`           |
 | `npm run lint`         | ESLint (type-aware)                      |
 | `npm run lint:fix`     | ESLint with autofix                      |
 | `npm run format`       | Prettier write                           |
@@ -57,6 +60,34 @@ Do not import `docs/api/openapi.yaml` into Postman — it is OpenAPI 3.1 and Pos
 | `npm run db:studio`    | Prisma Studio                            |
 | `npm run db:check`     | Standalone PostgreSQL connectivity check |
 | `npm run db:seed`      | Local instructor `you@example.com` / `Password1!` |
+
+## Tests
+
+```bash
+npm test
+```
+
+Jest runs the TypeScript sources directly in ESM mode, which is why the scripts
+set `NODE_OPTIONS=--experimental-vm-modules`. The suite needs neither a database
+nor an SMTP server: `tests/helpers/prisma-mock.ts` replaces `src/config/database.ts`
+and `tests/setup-env.ts` supplies a fixed configuration, so a developer's local
+`.env` never leaks into a run. bcrypt and JWT signing are exercised for real.
+
+```
+tests/
+  setup-env.ts           Deterministic env, loaded before any module under test
+  helpers/               Prisma mock registration and user/session fixtures
+  auth/
+    login.test.ts        POST /auth/login — role resolution, tokens, rejection
+    refresh.test.ts      POST /auth/refresh — rotation and reuse rejection
+    logout.test.ts       POST /auth/logout — revocation and bearer-token handling
+    me.test.ts           GET  /auth/me — profile and guard behaviour
+    password-reset.test.ts  The forgot -> verify -> reset OTP flow
+    rbac.test.ts         requireRole allow/deny matrix
+```
+
+Because the mocks are registered at import time, each suite reaches the code
+under test through `await import(...)` rather than a static import.
 
 ## Project structure
 

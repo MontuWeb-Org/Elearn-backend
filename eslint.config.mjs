@@ -30,6 +30,16 @@ export default tseslint.config(
     },
   },
   {
+    // Jest matchers make broad assertions on `any`-shaped response bodies; the
+    // unsafe-* rules would flag every one of them without catching real bugs.
+    files: ['tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+  {
     files: ['**/*.mjs', '**/*.js'],
     ...tseslint.configs.disableTypeChecked,
   },
